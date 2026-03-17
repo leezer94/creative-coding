@@ -16,7 +16,7 @@ import { useEffect, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { MeshDistortMaterial } from '@react-three/drei';
 import * as THREE from 'three';
-import { useParamsStore, type ParamsState } from '../store';
+import { useParamsStore, type ParamsState } from '@/store';
 
 // ─── Camera rig ───────────────────────────────────────────────────────────────
 

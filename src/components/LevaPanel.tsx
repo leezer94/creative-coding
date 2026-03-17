@@ -6,7 +6,7 @@
  */
 
 import { useControls } from 'leva';
-import { useParamsStore } from '../store';
+import { useParamsStore } from '@/store';
 
 const initial = () => useParamsStore.getState();
 

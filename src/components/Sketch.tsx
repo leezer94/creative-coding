@@ -15,7 +15,7 @@
 
 import { useEffect, useRef } from 'react';
 import p5 from 'p5';
-import { useParamsStore, type ParamsState } from '../store';
+import { useParamsStore, type ParamsState } from '@/store';
 
 // ─── Particle data ────────────────────────────────────────────────────────────
 

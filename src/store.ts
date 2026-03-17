@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { COLORS, SCENE, PARTICLES } from './config';
+import { COLORS, SCENE, PARTICLES } from '@/config';
 
 export interface ColorsState {
   background: string;
