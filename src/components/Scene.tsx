@@ -16,15 +16,16 @@ import { useEffect, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { MeshDistortMaterial } from '@react-three/drei';
 import * as THREE from 'three';
-import { COLORS, SCENE } from '../config';
+import { useParamsStore, type ParamsState } from '../store';
 
 // ─── Camera rig ───────────────────────────────────────────────────────────────
 
 function CameraRig() {
   const { gl } = useThree();
   const target = useRef(new THREE.Vector2(0, 0));
+  const cameraMouseInfluence = useParamsStore((s: ParamsState) => s.scene.cameraMouseInfluence);
+  const cameraMaxTilt = useParamsStore((s: ParamsState) => s.scene.cameraMaxTilt);
 
-  // Attach mouse listener once via useEffect — not inside useFrame
   useEffect(() => {
     const domEl = gl.domElement;
     const handleMouseMove = (e: MouseEvent) => {
@@ -38,8 +39,8 @@ function CameraRig() {
   }, [gl.domElement]);
 
   useFrame(({ camera }) => {
-    const lerpFactor = SCENE.cameraMouseInfluence;
-    const maxTilt = SCENE.cameraMaxTilt;
+    const lerpFactor = cameraMouseInfluence;
+    const maxTilt = cameraMaxTilt;
     camera.position.x +=
       (target.current.x * maxTilt - camera.position.x) * lerpFactor;
     camera.position.y +=
@@ -54,22 +55,23 @@ function CameraRig() {
 
 function MainForm() {
   const meshRef = useRef<THREE.Mesh>(null!);
+  const scene = useParamsStore((s: ParamsState) => s.scene);
+  const meshPrimary = useParamsStore((s: ParamsState) => s.colors.meshPrimary);
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
-    meshRef.current.rotation.x = t * SCENE.mainRotationSpeed * 0.6;
-    meshRef.current.rotation.y = t * SCENE.mainRotationSpeed;
+    meshRef.current.rotation.x = t * scene.mainRotationSpeed * 0.6;
+    meshRef.current.rotation.y = t * scene.mainRotationSpeed;
     meshRef.current.position.y =
-      Math.sin((t / SCENE.floatPeriod) * Math.PI * 2) * SCENE.floatAmplitude;
+      Math.sin((t / scene.floatPeriod) * Math.PI * 2) * scene.floatAmplitude;
   });
 
   return (
     <mesh ref={meshRef} castShadow>
       <torusKnotGeometry args={[1, 0.32, 180, 24, 2, 3]} />
-      {/* MeshDistortMaterial gives a subtle organic wobble */}
       <MeshDistortMaterial
-        color={COLORS.meshPrimary}
-        emissive={COLORS.meshPrimary}
+        color={meshPrimary}
+        emissive={meshPrimary}
         emissiveIntensity={0.35}
         metalness={0.7}
         roughness={0.2}
@@ -95,21 +97,25 @@ function Orbiter({ index, total }: OrbiterProps) {
   const radius = 2.4;
   const yOffset = (index % 2 === 0 ? 1 : -1) * 0.4;
 
+  const scene = useParamsStore((s: ParamsState) => s.scene);
+  const meshSecondary = useParamsStore((s: ParamsState) => s.colors.meshSecondary);
+  const meshAccent = useParamsStore((s: ParamsState) => s.colors.meshAccent);
+
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
-    const angle = baseAngle + t * SCENE.orbitSpeed;
+    const angle = baseAngle + t * scene.orbitSpeed;
     groupRef.current.position.x = Math.cos(angle) * radius;
     groupRef.current.position.z = Math.sin(angle) * radius;
     groupRef.current.position.y =
       yOffset +
-      Math.sin((t / SCENE.floatPeriod) * Math.PI * 2 + index) *
-        (SCENE.floatAmplitude * 0.6);
+      Math.sin((t / scene.floatPeriod) * Math.PI * 2 + index) *
+        (scene.floatAmplitude * 0.6);
 
     meshRef.current.rotation.x = t * 0.5 + index;
     meshRef.current.rotation.y = t * 0.7 + index;
   });
 
-  const color = index % 2 === 0 ? COLORS.meshSecondary : COLORS.meshAccent;
+  const color = index % 2 === 0 ? meshSecondary : meshAccent;
 
   return (
     <group ref={groupRef}>
@@ -133,6 +139,8 @@ function Orbiter({ index, total }: OrbiterProps) {
 const ORBITER_COUNT = 6;
 
 export default function Scene() {
+  const colors = useParamsStore((s: ParamsState) => s.colors);
+
   return (
     <Canvas
       camera={{ position: [0, 0, 5.5], fov: 50 }}
@@ -140,13 +148,9 @@ export default function Scene() {
       gl={{ antialias: true, alpha: false }}
       shadows
     >
-      {/* Fog for depth */}
-      <fog attach="fog" args={[COLORS.background, COLORS.fogNear, COLORS.fogFar]} />
+      <fog attach="fog" args={[colors.background, colors.fogNear, colors.fogFar]} />
+      <color attach="background" args={[colors.background]} />
 
-      {/* Background clear color */}
-      <color attach="background" args={[COLORS.background]} />
-
-      {/* Lighting */}
       <ambientLight intensity={0.15} />
       <directionalLight
         position={[4, 6, 4]}
@@ -154,8 +158,8 @@ export default function Scene() {
         castShadow
         shadow-mapSize={[1024, 1024]}
       />
-      <pointLight position={[-4, -2, 3]} intensity={0.8} color={COLORS.meshSecondary} />
-      <pointLight position={[3, 3, -3]} intensity={0.6} color={COLORS.meshAccent} />
+      <pointLight position={[-4, -2, 3]} intensity={0.8} color={colors.meshSecondary} />
+      <pointLight position={[3, 3, -3]} intensity={0.6} color={colors.meshAccent} />
 
       {/* Animated camera rig */}
       <CameraRig />

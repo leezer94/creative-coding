@@ -14,8 +14,12 @@
 
 import Scene from './components/Scene';
 import Sketch from './components/Sketch';
+import LevaPanel from './components/LevaPanel';
+import { useParamsStore, type ParamsState } from './store';
 
 export default function App() {
+  const particleCount = useParamsStore((s: ParamsState) => s.particles.count);
+
   return (
     <div
       style={{
@@ -25,11 +29,9 @@ export default function App() {
         overflow: 'hidden',
       }}
     >
-      {/* 3D layer — React Three Fiber */}
+      <LevaPanel />
       <Scene />
-
-      {/* 2D overlay — p5.js */}
-      <Sketch />
+      <Sketch key={particleCount} />
     </div>
   );
 }

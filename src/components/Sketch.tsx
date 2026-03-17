@@ -15,7 +15,7 @@
 
 import { useEffect, useRef } from 'react';
 import p5 from 'p5';
-import { COLORS, PARTICLES } from '../config';
+import { useParamsStore, type ParamsState } from '../store';
 
 // ─── Particle data ────────────────────────────────────────────────────────────
 
@@ -31,22 +31,21 @@ interface Particle {
 }
 
 // ─── Sketch factory ───────────────────────────────────────────────────────────
-// Kept as a plain function so it stays self-contained and easy to read.
+// getParams() returns current store state so Leva tweaks apply live in draw.
 
-function createSketch(container: HTMLElement) {
+function createSketch(container: HTMLElement, getParams: () => ParamsState) {
   return (p: p5) => {
     const particles: Particle[] = [];
 
-    /** Spawn a new particle at a random position relative to canvas center */
-    function spawnParticle(w: number, h: number): Particle {
+    function spawnParticle(w: number, h: number, params: ParamsState['particles']): Particle {
       const angle = p.random(Math.PI * 2);
-      const r = p.random(PARTICLES.spawnRadiusMin, PARTICLES.spawnRadiusMax);
+      const r = p.random(params.spawnRadiusMin, params.spawnRadiusMax);
       return {
         x: w / 2 + Math.cos(angle) * r,
         y: h / 2 + Math.sin(angle) * r,
         vx: 0,
         vy: 0,
-        alpha: p.random(40, PARTICLES.maxAlpha),
+        alpha: p.random(40, params.maxAlpha),
         size: p.random(1.5, 4.5),
         noiseOffsetX: p.random(1000),
         noiseOffsetY: p.random(1000),
@@ -56,60 +55,55 @@ function createSketch(container: HTMLElement) {
     p.setup = () => {
       const canvas = p.createCanvas(container.clientWidth, container.clientHeight);
       canvas.parent(container);
-      // Make this canvas transparent and non-interactive (pointer events handled by R3F)
       const el = canvas.elt as HTMLCanvasElement;
       el.style.position = 'absolute';
       el.style.inset = '0';
       el.style.pointerEvents = 'none';
 
-      for (let i = 0; i < PARTICLES.count; i++) {
-        particles.push(spawnParticle(p.width, p.height));
+      const { particles: pParams } = getParams();
+      for (let i = 0; i < pParams.count; i++) {
+        particles.push(spawnParticle(p.width, p.height, pParams));
       }
     };
 
     p.draw = () => {
-      // Transparent clear — trails fade naturally
       p.background(7, 11, 20, 28);
 
+      const { colors, particles: pParams } = getParams();
       const mx = p.mouseX;
       const my = p.mouseY;
-      const t = p.frameCount * PARTICLES.noiseScale * 80;
+      const t = p.frameCount * pParams.noiseScale * 80;
 
       for (const pt of particles) {
-        // ── Noise-based drift ──────────────────────────────────────────────
         const nx = p.noise(pt.noiseOffsetX, pt.noiseOffsetY, t) * 2 - 1;
         const ny = p.noise(pt.noiseOffsetX + 500, pt.noiseOffsetY + 500, t) * 2 - 1;
-        pt.vx += nx * PARTICLES.driftSpeed * 0.15;
-        pt.vy += ny * PARTICLES.driftSpeed * 0.15;
+        pt.vx += nx * pParams.driftSpeed * 0.15;
+        pt.vy += ny * pParams.driftSpeed * 0.15;
 
-        // ── Mouse attraction ───────────────────────────────────────────────
         const dx = mx - pt.x;
         const dy = my - pt.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist > 0 && dist < 280) {
-          pt.vx += (dx / dist) * PARTICLES.mouseAttract;
-          pt.vy += (dy / dist) * PARTICLES.mouseAttract;
+          pt.vx += (dx / dist) * pParams.mouseAttract;
+          pt.vy += (dy / dist) * pParams.mouseAttract;
         }
 
-        // ── Damping ────────────────────────────────────────────────────────
         pt.vx *= 0.92;
         pt.vy *= 0.92;
 
         pt.x += pt.vx;
         pt.y += pt.vy;
-        pt.noiseOffsetX += PARTICLES.noiseScale;
-        pt.noiseOffsetY += PARTICLES.noiseScale;
+        pt.noiseOffsetX += pParams.noiseScale;
+        pt.noiseOffsetY += pParams.noiseScale;
 
-        // ── Wrap around edges ──────────────────────────────────────────────
         if (pt.x < -20) pt.x = p.width + 20;
         if (pt.x > p.width + 20) pt.x = -20;
         if (pt.y < -20) pt.y = p.height + 20;
         if (pt.y > p.height + 20) pt.y = -20;
 
-        // ── Draw ───────────────────────────────────────────────────────────
         p.noFill();
-        p.strokeWeight(pt.size * PARTICLES.strokeWeight);
-        p.stroke(COLORS.particleR, COLORS.particleG, COLORS.particleB, pt.alpha);
+        p.strokeWeight(pt.size * pParams.strokeWeight);
+        p.stroke(colors.particleR, colors.particleG, colors.particleB, pt.alpha);
         p.point(pt.x, pt.y);
       }
     };
@@ -128,8 +122,8 @@ export default function Sketch() {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    // Create the p5 instance, passing the container element as the mount target
-    p5Ref.current = new p5(createSketch(containerRef.current));
+    const getParams = () => useParamsStore.getState();
+    p5Ref.current = new p5(createSketch(containerRef.current, getParams));
 
     return () => {
       // Cleanly remove the p5 sketch (removes canvas + stops draw loop)
@@ -142,7 +136,7 @@ export default function Sketch() {
     <div
       ref={containerRef}
       style={{
-        position: 'absolute',
+        position: "absolute",
         inset: 0,
         pointerEvents: 'none',
         overflow: 'hidden',
