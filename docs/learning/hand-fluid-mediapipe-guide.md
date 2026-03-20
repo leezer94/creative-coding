@@ -58,7 +58,7 @@ flowchart LR
 그래서 `App`의 `useEffect`에서 시작하고, cleanup에서 `teardown()`을 호출합니다.  
 시각 레이어(`Sketch`, `FluidContentLayer`)는 “구독자” 역할만 하도록 두면 구조가 단순해집니다.
 
-관련 파일: [`src/App.tsx`](../../src/App.tsx)
+관련 파일: [`src/App.tsx`](../../apps/viscous-memory/src/App.tsx)
 
 ---
 
@@ -74,7 +74,7 @@ flowchart LR
 
 `Camera`, `NotAllowedError` 등은 사용자 경험에 직결되므로, 스토어의 `camera.permission` / `message`로 최소한의 문구만 노출합니다.
 
-관련 파일: [`src/input/setupInputBroker.ts`](../../src/input/setupInputBroker.ts), [`src/components/CameraStatusOverlay.tsx`](../../src/components/CameraStatusOverlay.tsx)
+관련 파일: [`src/input/setupInputBroker.ts`](../../apps/viscous-memory/src/input/setupInputBroker.ts), [`src/components/CameraStatusOverlay.tsx`](../../apps/viscous-memory/src/components/CameraStatusOverlay.tsx)
 
 ---
 
@@ -93,8 +93,8 @@ flowchart LR
 **CDN이 막힌 환경**에서는 외부 URL로 WASM/번들을 불러올 수 없으므로, 이 저장소는 다음 전략을 씁니다.
 
 1. `pnpm install` 시 **`scripts/sync-mediapipe-public.mjs`**가  
-   `node_modules/@mediapipe/tasks-vision/wasm/` → `public/mediapipe/wasm/`로 복사
-2. `hand_landmarker.task`를 `public/mediapipe/`에 두고, 같은 출처 URL로 `modelAssetPath` 지정
+   `node_modules/@mediapipe/tasks-vision/wasm/` → `apps/viscous-memory/public/mediapipe/wasm/`로 복사
+2. `hand_landmarker.task`를 `apps/viscous-memory/public/mediapipe/`에 두고, 같은 출처 URL로 `modelAssetPath` 지정
 3. 런타임에는 `FilesetResolver.forVisionTasks( wasm 디렉터리 URL )`로 WASM을 찾게 함
 
 ### 패키지 `exports` 이슈와 Vite 별칭
@@ -104,9 +104,9 @@ flowchart LR
 
 관련 파일:
 
-- [`vite.config.ts`](../../vite.config.ts)
-- [`tsconfig.app.json`](../../tsconfig.app.json) — TypeScript가 동일 심볼을 해석하도록 paths
-- [`src/types/mediapipe-tasks-vision.d.ts`](../../src/types/mediapipe-tasks-vision.d.ts) — 최소 타입 선언
+- [`vite.config.ts`](../../apps/viscous-memory/vite.config.ts)
+- [`tsconfig.app.json`](../../apps/viscous-memory/tsconfig.app.json) — TypeScript가 동일 심볼을 해석하도록 paths
+- [`src/types/mediapipe-tasks-vision.d.ts`](../../apps/viscous-memory/src/types/mediapipe-tasks-vision.d.ts) — 최소 타입 선언
 - [`scripts/sync-mediapipe-public.mjs`](../../scripts/sync-mediapipe-public.mjs)
 - [`package.json`](../../package.json)의 `postinstall`
 
@@ -134,7 +134,7 @@ flowchart LR
 | `hand`       | 스무딩된 손 위치, 속도, confidence, `detected`                     |
 | `fluidState` | 유체장에서 뽑은 **요약값**(리빌 강도, 블러 등) — DOM 레이어가 구독 |
 
-관련 파일: [`src/store.ts`](../../src/store.ts)
+관련 파일: [`src/store.ts`](../../apps/viscous-memory/src/store.ts)
 
 ### 입력 스무딩(EMA)
 
@@ -144,7 +144,7 @@ flowchart LR
 
 `HAND_TRACKING.smoothingPosition`, `smoothingVelocity`가 그 계수입니다.
 
-관련 상수: [`src/config.ts`](../../src/config.ts)의 `HAND_TRACKING`
+관련 상수: [`src/config.ts`](../../apps/viscous-memory/src/config.ts)의 `HAND_TRACKING`
 
 ---
 
@@ -168,8 +168,8 @@ flowchart LR
 `mix-blend-mode: screen` 등으로 어두운 배경 위에 **은은한 발광**처럼 올립니다.  
 필드 텍스처에 `canvas 2D filter: blur`를 걸어 **잉크 번짐**을 강조합니다.
 
-관련 파일: [`src/components/Sketch.tsx`](../../src/components/Sketch.tsx)  
-관련 상수: [`src/config.ts`](../../src/config.ts)의 `FLUID`
+관련 파일: [`src/components/Sketch.tsx`](../../apps/viscous-memory/src/components/Sketch.tsx)  
+관련 상수: [`src/config.ts`](../../apps/viscous-memory/src/config.ts)의 `FLUID`
 
 ---
 
@@ -179,7 +179,7 @@ flowchart LR
 
 손가락을 “버튼”처럼 쓰지 않고, **압력과 흐름의 결과**로만 읽히게 하는 방향입니다.
 
-관련 파일: [`src/components/FluidContentLayer.tsx`](../../src/components/FluidContentLayer.tsx)
+관련 파일: [`src/components/FluidContentLayer.tsx`](../../apps/viscous-memory/src/components/FluidContentLayer.tsx)
 
 ---
 
@@ -196,14 +196,14 @@ flowchart LR
 | `FLUID.depositRadius` / `depositStrength` | “잉크” 두께                           |
 | `FLUID.blurPx` / `glowAlpha`              | 시각적 부드러움                       |
 
-파일: [`src/config.ts`](../../src/config.ts)
+파일: [`src/config.ts`](../../apps/viscous-memory/src/config.ts)
 
 ---
 
 ## 9. 로컬에서 자주 나는 문제 (학습용 체크리스트)
 
-1. **`public/mediapipe`**가 비어 있음 → `pnpm install`로 `postinstall` 실행 확인
-2. **`hand_landmarker.task` 없음** → 방화벽이면 수동으로 동일 파일을 `public/mediapipe/`에 배치
+1. **`apps/viscous-memory/public/mediapipe`**가 비어 있음 → `pnpm install`로 `postinstall` 실행 확인
+2. **`hand_landmarker.task` 없음** → 방화벽이면 수동으로 동일 파일을 `apps/viscous-memory/public/mediapipe/`에 배치
 3. **빌드는 되는데 런타임만 실패** → 브라우저 네트워크 탭에서 `/mediapipe/wasm/...` 404 여부 확인
 4. **권한은 OK인데 트래킹만 안 됨** → 모델/WASM 로드 실패 또는 조명/손이 화면 밖
 

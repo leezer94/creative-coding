@@ -6,7 +6,9 @@ status: active
 
 # Project documentation
 
-Creative-coding piece **Viscous Memory**: camera hand tracking, p5 fluid field, minimal DOM content reveal. Constants live in `src/config.ts`.
+Creative-coding piece **Viscous Memory**: camera hand tracking, p5 fluid field, minimal DOM content reveal. Constants live in `apps/viscous-memory/src/config.ts`.
+
+**Monorepo:** pnpm workspace + [Turborepo](https://turbo.build/) — 루트에서 `pnpm dev` / `pnpm build` 등으로 `apps/*` Vite 앱을 실행합니다. 공통 의존성 버전은 `pnpm-workspace.yaml`의 `catalog`를 따릅니다.
 
 ## Doc map
 

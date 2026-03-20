@@ -6,7 +6,7 @@ status: active
 
 # Config and constants guide
 
-모든 조절 가능한 값은 **`src/config.ts`** 에만 둡니다. 컴포넌트 안에 매직 넘버를 흩뿌리지 마세요.
+모든 조절 가능한 값은 **`apps/viscous-memory/src/config.ts`** 에만 둡니다. 컴포넌트 안에 매직 넘버를 흩뿌리지 마세요.
 
 ## ATMOSPHERE
 
@@ -43,5 +43,5 @@ status: active
 
 ## 참고 코드
 
-- 유체 디포짓: `src/components/Sketch.tsx`
-- 손 → 스토어: `src/input/setupInputBroker.ts`
+- 유체 디포짓: `apps/viscous-memory/src/components/Sketch.tsx`
+- 손 → 스토어: `apps/viscous-memory/src/input/setupInputBroker.ts`
