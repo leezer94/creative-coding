@@ -18,9 +18,12 @@ Creative-coding piece **Viscous Memory**: camera hand tracking, p5 fluid field, 
 | [learning/](./learning/)         | Hand-Fluid + MediaPipe guide (Korean), short legacy note |
 | [agent/](./agent/)               | Agent persona                                            |
 | [workflow/](./workflow/)         | Task flow, review checklist                              |
+| [ideation/](./ideation/)         | Concept / build prompts for new pieces                   |
 
 ## Quick links
 
+- [**Mirror Room — dual-camera build prompt (EN)**](./ideation/mirror-room-build-prompt.md) — Host (Mac) + Guest (phone WebRTC), compositor spec.
+- [**Mirror Room — app README**](../apps/mirror-room/README.md) — run signal + Vite, LAN env notes.
 - [**Hand-Fluid + MediaPipe 학습 가이드**](./learning/hand-fluid-mediapipe-guide.md) — Main technical walkthrough (Korean).
 - [Config guide](./architecture/config-guide.md) — `ATMOSPHERE`, `HAND_TRACKING`, `FLUID`, `CONTENT`.
 - [Library recognition](./architecture/library-recognition.md) — Stack boundaries for agents.
