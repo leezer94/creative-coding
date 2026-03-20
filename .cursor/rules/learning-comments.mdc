@@ -1,0 +1,25 @@
+---
+description: Add brief "what and why" comments when editing core Viscous Memory code (React shell, p5 fluid, input broker, store, config).
+globs: apps/viscous-memory/src/App.tsx, apps/viscous-memory/src/components/Sketch.tsx, apps/viscous-memory/src/components/FluidContentLayer.tsx, apps/viscous-memory/src/input/setupInputBroker.ts, apps/viscous-memory/src/store.ts, apps/viscous-memory/src/config.ts
+alwaysApply: false
+---
+
+# Learning-oriented comments
+
+This project is the **Viscous Memory** hand-fluid piece (p5 + MediaPipe). When you add or change code in the core files (App, Sketch, FluidContentLayer, input broker, store, config):
+
+1. **Add a short comment** that explains *what* the code does and *why* it is done that way (e.g. why this hook, why this order, why this value).
+2. Prefer comments above a block or next to a non-obvious line; avoid commenting every line.
+3. Use **English** for these comments so they stay consistent with `docs/learning/hand-fluid-mediapipe-guide.md`.
+
+Example:
+
+```ts
+// Run camera tilt in useFrame so it stays in sync with the 3D render loop; we keep the mouse listener in useEffect to avoid re-attaching every frame.
+useFrame(({ camera }) => { ... });
+```
+
+```ts
+// Low alpha (28) clears the canvas only partially each frame, so previous positions remain visible and form the trail.
+p.background(7, 11, 20, 28);
+```
