@@ -4,7 +4,7 @@ import type { CompositorMode } from '@/config';
 import CompositorCanvas from '@/components/compositor-canvas';
 import SessionQrCode from '@/components/session-qr-code';
 import { useHostWebRtc } from '@/webrtc/use-host-webrtc';
-import { getPublicOrigin, getSignalUrl } from '@/webrtc/ice';
+import { getPublicOrigin, getSignalUrl, isProductionSignalMissing } from '@/webrtc/ice';
 
 /**
  * `randomUUID()` is missing in non-secure HTTP (e.g. http://192.168.x.x on some browsers).
@@ -279,15 +279,39 @@ export default function HostPage() {
             >
               QR / guest URL still use localhost — phones cannot open that. Add{' '}
               <code style={{ fontSize: 10 }}>
-                VITE_PUBLIC_ORIGIN=http://&lt;your-LAN-IP&gt;:5173
+                VITE_PUBLIC_ORIGIN=https://&lt;your-LAN-IP&gt;:5173
               </code>{' '}
               to <code style={{ fontSize: 10 }}>.env.local</code> and restart Vite, or
               open this host page directly at your LAN IP.
             </p>
           )}
 
+          {isProductionSignalMissing() && (
+            <p
+              style={{
+                margin: '0 0 10px',
+                padding: 8,
+                fontSize: 11,
+                lineHeight: 1.45,
+                color: '#fca',
+                background: 'rgba(180,100,40,0.25)',
+                borderRadius: 8,
+                border: '1px solid rgba(200,120,60,0.5)',
+              }}
+            >
+              Production build has no{' '}
+              <code style={{ fontSize: 10 }}>VITE_SIGNAL_URL</code>. WebRTC signaling
+              cannot connect. Set it at build time to your public{' '}
+              <code style={{ fontSize: 10 }}>wss://</code> signal URL (see{' '}
+              <code style={{ fontSize: 10 }}>
+                docs/architecture/mirror-room-public-deploy.md
+              </code>
+              ).
+            </p>
+          )}
+
           <div style={{ marginBottom: 10, fontSize: 12 }}>
-            <div>Signal: {getSignalUrl()}</div>
+            <div>Signal: {getSignalUrl() || '(not configured)'}</div>
             <div>Session: {sessionId}</div>
             <div>WebRTC: {status}</div>
             <div>
@@ -337,8 +361,12 @@ export default function HostPage() {
             <SessionQrCode value={guestUrl} size={128} />
           </div>
           <p style={{ fontSize: 11, color: '#888', marginTop: 8, lineHeight: 1.4 }}>
-            Open the guest link on a phone on the same Wi‑Fi. Run the signal server on
-            0.0.0.0:8787 so phones can reach it at this machine&apos;s LAN IP.
+            LAN: same Wi‑Fi + signal on <code style={{ fontSize: 10 }}>0.0.0.0:8787</code>
+            . Public QR from anywhere: deploy static app with{' '}
+            <code style={{ fontSize: 10 }}>VITE_PUBLIC_ORIGIN</code> and a public{' '}
+            <code style={{ fontSize: 10 }}>wss://</code> for{' '}
+            <code style={{ fontSize: 10 }}>VITE_SIGNAL_URL</code> (tunnel or hosted
+            signal). See app README / public deploy doc.
           </p>
         </aside>
       )}

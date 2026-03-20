@@ -1,7 +1,7 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { GUEST_VIDEO } from '@/config';
-import { getSignalUrl } from '@/webrtc/ice';
+import { getSignalUrl, isProductionSignalMissing } from '@/webrtc/ice';
 import { useGuestWebRtc } from '@/webrtc/use-guest-webrtc';
 
 type LegacyGetUserMedia = (
@@ -231,8 +231,26 @@ export default function GuestPage() {
           </button>
         </div>
 
+        {isProductionSignalMissing() && (
+          <p
+            style={{
+              padding: 10,
+              fontSize: 12,
+              lineHeight: 1.45,
+              color: '#fca',
+              background: 'rgba(180,100,40,0.2)',
+              borderRadius: 8,
+              border: '1px solid rgba(200,120,60,0.45)',
+            }}
+          >
+            This build is missing <code style={{ fontSize: 11 }}>VITE_SIGNAL_URL</code>.
+            Set a public <code style={{ fontSize: 11 }}>wss://</code> signal URL when
+            building the app.
+          </p>
+        )}
+
         <div style={{ fontSize: 13, color: '#b7b3c9' }}>
-          <div>Signal target: {getSignalUrl()}</div>
+          <div>Signal target: {getSignalUrl() || '(not configured)'}</div>
           <div>Link status: {status}</div>
         </div>
 
