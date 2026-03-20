@@ -5,9 +5,11 @@
   "packageManager": "pnpm@9.12.3",
   "type": "module",
   "scripts": {
-    "postinstall": "node scripts/sync-mediapipe-public.mjs --app-dir apps/viscous-memory",
+    "postinstall": "node scripts/sync-mediapipe-public.mjs --app-dir apps/viscous-memory --app-dir apps/mirror-room",
     "dev": "turbo run dev",
     "dev:viscous-memory": "pnpm --filter viscous-memory dev",
+    "dev:mirror-room": "pnpm --filter mirror-room dev",
+    "dev:mirror-room-signal": "pnpm --filter mirror-room-signal start",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "format": "prettier --write .",
