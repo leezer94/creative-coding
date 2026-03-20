@@ -4,3 +4,7 @@
 [build]
   command = "cd ../.. && pnpm install && pnpm --filter mirror-room build"
   publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"

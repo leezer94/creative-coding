@@ -76,18 +76,19 @@ Techno/installation-style dual-camera piece: **Host (Mac)** runs Lane S (local w
 1. **`mirror-room-signal`을 인터넷에서 `wss://`로 노출** — 리버스 프록시(Let’s Encrypt), PaaS, 또는 cloudflared/ngrok 같은 터널.
 2. **프로덕션 빌드할 때 반드시 설정:**
    - `VITE_PUBLIC_ORIGIN=https://<your-static-site>` (QR·게스트 링크)
-   - `VITE_SIGNAL_URL=wss://<your-public-signal-host>` (**필수** — Vite 프록시는 프로덕션 정적 호스팅에 없음)
-3. 상세 체크리스트: [`docs/architecture/mirror-room-public-deploy.md`](../../docs/architecture/mirror-room-public-deploy.md)
+   - 레거시 P2P: `VITE_SIGNAL_URL=wss://<your-public-signal-host>` (**또는** SFU 모드로 LiveKit 변수 세트 — 아래)
+3. **SFU (LiveKit):** `VITE_USE_SFU=true`, `VITE_LIVEKIT_URL`, `VITE_LIVEKIT_TOKEN_URL` — [`docs/architecture/mirror-room-livekit.md`](../../docs/architecture/mirror-room-livekit.md), Netlify 토큰 함수는 [`netlify/functions/livekit-token.mjs`](./netlify/functions/livekit-token.mjs).
+4. 상세 체크리스트: [`docs/architecture/mirror-room-public-deploy.md`](../../docs/architecture/mirror-room-public-deploy.md)
 
 정적 호스팅 예시 설정: 이 디렉터리의 [`netlify.toml`](./netlify.toml), [`vercel.json`](./vercel.json) (각 플랫폼에서 프로젝트/베이스 디렉터리를 `apps/mirror-room`에 맞추고, 빌드 환경 변수에 `VITE_*`를 설정).
 
 ## Scripts
 
-| Command                           | Purpose                                   |
-| --------------------------------- | ----------------------------------------- |
-| `pnpm dev:mirror-room`            | Vite dev w/ `--host`                      |
-| `pnpm dev:mirror-room-signal`     | WebRTC signaling                          |
-| `pnpm --filter mirror-room build` | Production build (`VITE_SIGNAL_URL` 필수) |
+| Command                           | Purpose                                                                        |
+| --------------------------------- | ------------------------------------------------------------------------------ |
+| `pnpm dev:mirror-room`            | Vite dev w/ `--host`                                                           |
+| `pnpm dev:mirror-room-signal`     | WebRTC signaling                                                               |
+| `pnpm --filter mirror-room build` | Production build (`VITE_SIGNAL_URL` 또는 SFU `VITE_*` — `vite.config.ts` 참고) |
 
 ## Defaults
 

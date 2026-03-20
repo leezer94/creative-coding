@@ -7,9 +7,14 @@ import { defineConfig } from 'vite';
 const SIGNAL_PROXY_PATH = '/__mirror_room_signal';
 
 export default defineConfig(({ command }) => {
-  if (command === 'build' && !process.env.VITE_SIGNAL_URL?.trim()) {
+  const signalOk = Boolean(process.env.VITE_SIGNAL_URL?.trim());
+  const sfuOk =
+    process.env.VITE_USE_SFU === 'true' &&
+    Boolean(process.env.VITE_LIVEKIT_URL?.trim()) &&
+    Boolean(process.env.VITE_LIVEKIT_TOKEN_URL?.trim());
+  if (command === 'build' && !signalOk && !sfuOk) {
     throw new Error(
-      'mirror-room production build requires VITE_SIGNAL_URL (public wss:// URL). See docs/architecture/mirror-room-public-deploy.md'
+      'mirror-room production build requires VITE_SIGNAL_URL (legacy P2P), or VITE_USE_SFU=true with VITE_LIVEKIT_URL + VITE_LIVEKIT_TOKEN_URL. See docs/architecture/mirror-room-public-deploy.md and docs/architecture/mirror-room-livekit.md'
     );
   }
 
