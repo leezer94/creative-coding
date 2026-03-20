@@ -23,28 +23,57 @@ export function getPublicOrigin(): string {
 export const DEV_SIGNAL_WSS_PATH = '/__mirror_room_signal';
 
 /**
+ * Dev HTTPS + `wss://<same-host>:8787` is a common mistake: `mirror-room-signal` listens for **plain ws** on 8787,
+ * not TLS. The browser should use the **Vite WSS proxy** on the app origin (`/__mirror_room_signal` → 127.0.0.1:8787).
+ */
+function shouldUseViteDevSignalProxy(
+  pageHostname: string,
+  explicit: string | undefined
+): boolean {
+  if (!explicit?.trim()) {
+    return true;
+  }
+  try {
+    const u = new URL(explicit.trim());
+    if (u.port !== '8787') {
+      return false;
+    }
+    return u.hostname === pageHostname;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * WebSocket URL for `mirror-room-signal`.
  *
  * - **Production (`vite build`):** must set `VITE_SIGNAL_URL` (e.g. `wss://signal.example.com`).
  *   Static hosts (Netlify, Vercel, etc.) do not run the Vite dev proxy — same-origin `/__mirror_room_signal` is not available.
- * - **Development:** if unset, uses the Vite WSS proxy on HTTPS, or `ws://<public-origin-host>:8787` on HTTP/LAN.
+ * - **Development:** HTTPS → same-origin Vite WSS proxy (`/__mirror_room_signal`). If `.env` has
+ *   `VITE_SIGNAL_URL=wss://<same-host-as-page>:8787`, that value is **ignored** in dev: signal on 8787 is
+ *   usually plain `ws`, not `wss`. HTTP → `ws://<public-origin-host>:8787` when `VITE_SIGNAL_URL` unset.
  */
 export function getSignalUrl(): string {
   const explicit = import.meta.env.VITE_SIGNAL_URL?.trim();
-  if (explicit) {
-    return explicit;
-  }
 
   if (import.meta.env.DEV && typeof window !== 'undefined') {
     if (window.location.protocol === 'https:') {
-      return `wss://${window.location.host}${DEV_SIGNAL_WSS_PATH}`;
+      const host = window.location.hostname;
+      if (shouldUseViteDevSignalProxy(host, explicit)) {
+        return `wss://${window.location.host}${DEV_SIGNAL_WSS_PATH}`;
+      }
+    } else if (!explicit) {
+      try {
+        const u = new URL(getPublicOrigin());
+        return `ws://${u.hostname}:8787`;
+      } catch {
+        return `ws://${window.location.hostname}:8787`;
+      }
     }
-    try {
-      const u = new URL(getPublicOrigin());
-      return `ws://${u.hostname}:8787`;
-    } catch {
-      return `ws://${window.location.hostname}:8787`;
-    }
+  }
+
+  if (explicit) {
+    return explicit;
   }
 
   return '';
