@@ -1,10 +1,33 @@
-import { type CSSProperties, useEffect, useRef, useState } from 'react';
-import { COMPOSITOR_MODE, GUEST_VIDEO, MODE as defaultMode } from '@/config';
-import type { CompositorMode } from '@/config';
+import {
+  type CSSProperties,
+  type RefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  COMPOSITOR_MODE,
+  DEFAULT_HOST_PREVIEW_LAYOUT,
+  GUEST_VIDEO,
+  getHostVideoConstraints,
+  HOST_PREVIEW_LAYOUT,
+  MODE as defaultMode,
+  STAGE_LANE_A_EXTRA_VIDEOS,
+  getStageAudioEnabled,
+} from '@/config';
+import type { CompositorMode, HostPreviewLayout } from '@/config';
 import CompositorCanvas from '@/components/compositor-canvas';
 import SessionQrCode from '@/components/session-qr-code';
 import { useHostWebRtc } from '@/webrtc/use-host-webrtc';
+import {
+  getUseSfu,
+  isLiveKitConfigured,
+  isProductionLiveKitMissing,
+} from '@/webrtc/livekit-config';
 import { getPublicOrigin, getSignalUrl, isProductionSignalMissing } from '@/webrtc/ice';
+import { useLiveKitRoom } from '@/webrtc/use-livekit-room';
+import { useHostPreviewDock } from './use-host-preview-dock';
 
 /**
  * `randomUUID()` is missing in non-secure HTTP (e.g. http://192.168.x.x on some browsers).
@@ -67,6 +90,9 @@ export default function HostPage() {
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [debug, setDebug] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [previewLayout, setPreviewLayout] = useState<HostPreviewLayout>(
+    DEFAULT_HOST_PREVIEW_LAYOUT
+  );
   const [mode, setMode] = useState<CompositorMode>(defaultMode);
 
   const videoS = useRef<HTMLVideoElement>(null);
@@ -74,7 +100,28 @@ export default function HostPage() {
   const previewS = useRef<HTMLVideoElement>(null);
   const previewA = useRef<HTMLVideoElement>(null);
 
-  const { remoteStream, status } = useHostWebRtc(sessionId, localStream);
+  const useSfu = useMemo(() => getUseSfu() && isLiveKitConfigured(), []);
+
+  const remoteExtra1 = useRef<HTMLVideoElement>(null);
+  const remoteExtra2 = useRef<HTMLVideoElement>(null);
+  const remoteExtra3 = useRef<HTMLVideoElement>(null);
+  const laneARemoteExtras: RefObject<HTMLVideoElement | null>[] = [
+    remoteExtra1,
+    remoteExtra2,
+    remoteExtra3,
+  ];
+
+  const { remoteStream, status } = useHostWebRtc(sessionId, useSfu ? null : localStream);
+
+  const { hasRemoteParticipant: liveKitGuestOn, status: liveKitStatus } = useLiveKitRoom({
+    sessionId,
+    enabled: useSfu && !!sessionId,
+    identity: `host-${sessionId}`,
+    localVideoRef: videoS,
+    remoteVideoRef: videoA,
+    extraRemoteVideoRefs: laneARemoteExtras,
+    publishVideo: true,
+  });
 
   const guestUrl = `${getPublicOrigin()}/g/${sessionId}`;
   const needsLanHint =
@@ -83,18 +130,17 @@ export default function HostPage() {
     !import.meta.env.VITE_PUBLIC_ORIGIN?.trim();
 
   useEffect(() => {
+    if (useSfu) {
+      return;
+    }
     let stream: MediaStream | null = null;
     let cancelled = false;
 
     (async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 30 },
-          },
-          audio: false,
+          video: getHostVideoConstraints(),
+          audio: getStageAudioEnabled(),
         });
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
@@ -115,7 +161,7 @@ export default function HostPage() {
       cancelled = true;
       stream?.getTracks().forEach((t) => t.stop());
     };
-  }, []);
+  }, [useSfu]);
 
   useEffect(() => {
     const el = videoA.current;
@@ -136,6 +182,20 @@ export default function HostPage() {
     }
     const a = previewA.current;
     const s = previewS.current;
+    if (useSfu) {
+      if (s && videoS.current?.srcObject) {
+        s.srcObject = videoS.current.srcObject;
+        void s.play();
+      }
+      if (a && videoA.current?.srcObject) {
+        a.srcObject = videoA.current.srcObject;
+        void a.play();
+      }
+      if (a && !videoA.current?.srcObject) {
+        a.srcObject = null;
+      }
+      return;
+    }
     if (s && localStream) {
       s.srcObject = localStream;
       void s.play();
@@ -147,9 +207,11 @@ export default function HostPage() {
     if (a && !remoteStream) {
       a.srcObject = null;
     }
-  }, [localStream, preview, remoteStream]);
+  }, [localStream, preview, remoteStream, useSfu]);
 
-  const guestConnected = !!remoteStream;
+  const guestConnected = useSfu ? liveKitGuestOn : !!remoteStream;
+
+  const { dock, resetDock, dragHandleProps, resizeHandleProps } = useHostPreviewDock();
 
   return (
     <div
@@ -158,6 +220,9 @@ export default function HostPage() {
       <CompositorCanvas
         videoS={videoS}
         videoA={videoA}
+        laneARemoteRefs={useSfu ? laneARemoteExtras : []}
+        laneARemotePolicy="max"
+        laneASpotlightIndex={0}
         guestConnected={guestConnected}
         mode={mode}
         debug={debug}
@@ -187,42 +252,210 @@ export default function HostPage() {
           pointerEvents: 'none',
         }}
       />
+      {useSfu && (
+        <>
+          {STAGE_LANE_A_EXTRA_VIDEOS >= 1 && (
+            <video
+              ref={remoteExtra1}
+              muted
+              playsInline
+              style={{
+                position: 'absolute',
+                width: 1,
+                height: 1,
+                opacity: 0,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+          {STAGE_LANE_A_EXTRA_VIDEOS >= 2 && (
+            <video
+              ref={remoteExtra2}
+              muted
+              playsInline
+              style={{
+                position: 'absolute',
+                width: 1,
+                height: 1,
+                opacity: 0,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+          {STAGE_LANE_A_EXTRA_VIDEOS >= 3 && (
+            <video
+              ref={remoteExtra3}
+              muted
+              playsInline
+              style={{
+                position: 'absolute',
+                width: 1,
+                height: 1,
+                opacity: 0,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+        </>
+      )}
+
+      {guestConnected && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'max(12px, env(safe-area-inset-top))',
+            right: 'max(12px, env(safe-area-inset-right))',
+            zIndex: 3,
+            padding: '6px 12px',
+            borderRadius: 999,
+            fontSize: 12,
+            fontWeight: 600,
+            color: '#f4f2ff',
+            background: 'rgba(108, 92, 231, 0.92)',
+            border: '1px solid rgba(180, 170, 255, 0.45)',
+            boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+            pointerEvents: 'none',
+          }}
+        >
+          관객 연결됨
+        </div>
+      )}
 
       {preview && (
         <div
           style={{
             position: 'absolute',
-            right: 8,
-            bottom: 8,
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 6,
-            opacity: 0.65,
-            pointerEvents: 'none',
+            right: dock.right,
+            bottom: dock.bottom,
+            width: dock.width,
+            zIndex: 2,
+            pointerEvents: 'auto',
+            maxWidth:
+              'calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 8px)',
           }}
         >
-          <video
-            ref={previewS}
-            muted
-            playsInline
+          <div
             style={{
-              width: 160,
-              height: 90,
-              objectFit: 'cover',
-              border: '1px solid #333',
+              position: 'relative',
+              borderRadius: 10,
+              overflow: 'hidden',
+              border: '1px solid #3a3a48',
+              background: 'rgba(8,8,14,0.92)',
+              boxShadow: '0 12px 36px rgba(0,0,0,0.5)',
             }}
-          />
-          <video
-            ref={previewA}
-            muted
-            playsInline
-            style={{
-              width: 160,
-              height: 90,
-              objectFit: 'cover',
-              border: '1px solid #333',
-            }}
-          />
+          >
+            <div
+              {...dragHandleProps}
+              style={{
+                ...dragHandleProps.style,
+                cursor: 'grab',
+                padding: '7px 10px',
+                fontSize: 11,
+                color: '#b8b4c8',
+                userSelect: 'none',
+                background: 'linear-gradient(180deg, #1e1e2a 0%, #15151c 100%)',
+                borderBottom: '1px solid #2a2a38',
+              }}
+            >
+              프리뷰 · 여기를 드래그해 위치 이동
+            </div>
+
+            {previewLayout === HOST_PREVIEW_LAYOUT.Stage ? (
+              <div
+                style={{
+                  position: 'relative',
+                  opacity: 0.72,
+                  background: '#111',
+                }}
+              >
+                <video
+                  ref={previewS}
+                  muted
+                  playsInline
+                  style={{
+                    width: '100%',
+                    height: 'auto',
+                    aspectRatio: '16 / 9',
+                    display: 'block',
+                    objectFit: 'cover',
+                    pointerEvents: 'none',
+                  }}
+                />
+                <video
+                  ref={previewA}
+                  muted
+                  playsInline
+                  style={{
+                    position: 'absolute',
+                    right: 8,
+                    bottom: 8,
+                    width: 'min(38%, 168px)',
+                    aspectRatio: '16 / 9',
+                    objectFit: 'cover',
+                    borderRadius: 8,
+                    border: guestConnected
+                      ? '2px solid rgba(108, 92, 231, 0.95)'
+                      : '1px solid #444',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                    pointerEvents: 'none',
+                  }}
+                />
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 6,
+                  padding: 6,
+                  opacity: 0.65,
+                }}
+              >
+                <video
+                  ref={previewS}
+                  muted
+                  playsInline
+                  style={{
+                    width: '100%',
+                    aspectRatio: '16 / 9',
+                    objectFit: 'cover',
+                    border: '1px solid #333',
+                    borderRadius: 4,
+                    pointerEvents: 'none',
+                  }}
+                />
+                <video
+                  ref={previewA}
+                  muted
+                  playsInline
+                  style={{
+                    width: '100%',
+                    aspectRatio: '16 / 9',
+                    objectFit: 'cover',
+                    border: '1px solid #333',
+                    borderRadius: 4,
+                    pointerEvents: 'none',
+                  }}
+                />
+              </div>
+            )}
+
+            <div
+              {...resizeHandleProps}
+              title="드래그해 크기 조절"
+              style={{
+                ...resizeHandleProps.style,
+                position: 'absolute',
+                right: 0,
+                bottom: 0,
+                width: 20,
+                height: 20,
+                cursor: 'nwse-resize',
+                background:
+                  'linear-gradient(135deg, transparent 45%, rgba(200,200,220,0.35) 45%, rgba(200,200,220,0.35) 50%, transparent 50%)',
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -286,7 +519,7 @@ export default function HostPage() {
             </p>
           )}
 
-          {isProductionSignalMissing() && (
+          {isProductionSignalMissing() && !getUseSfu() && (
             <p
               style={{
                 margin: '0 0 10px',
@@ -306,6 +539,32 @@ export default function HostPage() {
               <code style={{ fontSize: 10 }}>
                 docs/architecture/mirror-room-public-deploy.md
               </code>
+              ), or enable SFU with{' '}
+              <code style={{ fontSize: 10 }}>VITE_USE_SFU=true</code> and LiveKit env
+              vars.
+            </p>
+          )}
+
+          {isProductionLiveKitMissing() && (
+            <p
+              style={{
+                margin: '0 0 10px',
+                padding: 8,
+                fontSize: 11,
+                lineHeight: 1.45,
+                color: '#fca',
+                background: 'rgba(180,100,40,0.25)',
+                borderRadius: 8,
+                border: '1px solid rgba(200,120,60,0.5)',
+              }}
+            >
+              SFU mode is on but LiveKit is incomplete. Set{' '}
+              <code style={{ fontSize: 10 }}>VITE_LIVEKIT_URL</code> and{' '}
+              <code style={{ fontSize: 10 }}>VITE_LIVEKIT_TOKEN_URL</code> at build time
+              (see{' '}
+              <code style={{ fontSize: 10 }}>
+                docs/architecture/mirror-room-livekit.md
+              </code>
               ).
             </p>
           )}
@@ -313,7 +572,7 @@ export default function HostPage() {
           <div style={{ marginBottom: 10, fontSize: 12 }}>
             <div>Signal: {getSignalUrl() || '(not configured)'}</div>
             <div>Session: {sessionId}</div>
-            <div>WebRTC: {status}</div>
+            <div>WebRTC: {useSfu ? `LiveKit (${liveKitStatus})` : status}</div>
             <div>
               Guest video cap: {GUEST_VIDEO.maxWidth}×{GUEST_VIDEO.maxHeight}
             </div>
@@ -334,6 +593,22 @@ export default function HostPage() {
             </button>
             <button type="button" style={btn} onClick={() => setPreview((p) => !p)}>
               Preview cams
+            </button>
+            <button
+              type="button"
+              style={btn}
+              onClick={() =>
+                setPreviewLayout((l) =>
+                  l === HOST_PREVIEW_LAYOUT.Stage
+                    ? HOST_PREVIEW_LAYOUT.Dual
+                    : HOST_PREVIEW_LAYOUT.Stage
+                )
+              }
+            >
+              Preview: {previewLayout === HOST_PREVIEW_LAYOUT.Stage ? '무대' : '듀얼'}
+            </button>
+            <button type="button" style={btn} onClick={resetDock} disabled={!preview}>
+              프리뷰 위치·크기 초기화
             </button>
             <button
               type="button"
