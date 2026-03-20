@@ -71,8 +71,20 @@ export function useHostWebRtc(sessionId: string, localStream: MediaStream | null
       ws?.send(JSON.stringify({ type: 'offer', sessionId, sdp: offer.sdp }));
     };
 
+    const signalUrl = getSignalUrl();
+    if (!signalUrl) {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setStatus('error');
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     try {
-      ws = new WebSocket(getSignalUrl());
+      ws = new WebSocket(signalUrl);
     } catch {
       queueMicrotask(() => {
         if (!cancelled) {

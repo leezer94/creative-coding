@@ -105,8 +105,20 @@ export function useGuestWebRtc(
       }
     });
 
+    const signalUrl = getSignalUrl();
+    if (!signalUrl) {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setStatus('error');
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     try {
-      ws = new WebSocket(getSignalUrl());
+      ws = new WebSocket(signalUrl);
     } catch {
       queueMicrotask(() => {
         if (!cancelled) {
