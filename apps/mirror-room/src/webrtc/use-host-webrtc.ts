@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getIceServers, getSignalUrl } from '@/webrtc/ice';
+import { applyOutboundVideoEncoding } from '@/webrtc/outbound-video-encoding';
 
 type HostSignalingStatus = 'idle' | 'ws-connecting' | 'ws-open' | 'peer-joined' | 'error';
 
@@ -140,6 +141,7 @@ export function useHostWebRtc(sessionId: string, localStream: MediaStream | null
         try {
           await pc.setRemoteDescription({ type: 'answer', sdp: msg.sdp });
           await flushIce();
+          await applyOutboundVideoEncoding(pc);
         } catch {
           setStatus('error');
         }

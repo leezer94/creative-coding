@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getIceServers, getSignalUrl } from '@/webrtc/ice';
+import { applyOutboundVideoEncoding } from '@/webrtc/outbound-video-encoding';
 
 type GuestStatus = 'idle' | 'connecting' | 'signal-open' | 'streaming' | 'error';
 
@@ -14,6 +15,7 @@ export function useGuestWebRtc(
   active: boolean
 ) {
   const [status, setStatus] = useState<GuestStatus>('idle');
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const localStreamRef = useRef(localStream);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const pendingOfferSdpRef = useRef<string | null>(null);
@@ -69,6 +71,13 @@ export function useGuestWebRtc(
           );
         }
       };
+      peer.ontrack = (ev) => {
+        if (cancelled) {
+          return;
+        }
+        const stream = ev.streams[0] ?? new MediaStream([ev.track]);
+        setRemoteStream(stream);
+      };
       pc = peer;
       pcRef.current = peer;
       return peer;
@@ -86,6 +95,7 @@ export function useGuestWebRtc(
         await flushIce();
         const answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
+        await applyOutboundVideoEncoding(peer);
         ws?.send(JSON.stringify({ type: 'answer', sessionId, sdp: answer.sdp }));
         if (!cancelled) {
           setStatus('streaming');
@@ -172,6 +182,7 @@ export function useGuestWebRtc(
         pc?.close();
         pc = null;
         pcRef.current = null;
+        setRemoteStream(null);
         setStatus('signal-open');
       }
     };
@@ -190,6 +201,7 @@ export function useGuestWebRtc(
       pc = null;
       pcRef.current = null;
       ws?.close();
+      setRemoteStream(null);
       setStatus('idle');
     };
   }, [active, sessionId]);
@@ -225,8 +237,10 @@ export function useGuestWebRtc(
     if (sender.track?.id === videoTrack.id) {
       return;
     }
-    void sender.replaceTrack(videoTrack);
+    void sender.replaceTrack(videoTrack).then(() => {
+      void applyOutboundVideoEncoding(peer);
+    });
   }, [localStream, status]);
 
-  return status;
+  return { status, remoteStream };
 }
