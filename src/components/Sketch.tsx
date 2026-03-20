@@ -1,120 +1,206 @@
-/**
- * Sketch.tsx
- *
- * p5.js instance-mode component rendered as a transparent canvas overlay.
- *
- * Responsibilities:
- *   - 2D generative particle layer on top of the 3D scene
- *   - Perlin-noise drift for each particle
- *   - Subtle mouse attraction
- *   - Resize handling
- *   - Clean teardown on unmount
- *
- * Three.js / React Three Fiber is NOT used here.
- */
-
 import { useEffect, useRef } from 'react';
 import p5 from 'p5';
-import { useParamsStore, type ParamsState } from '@/store';
+import { HAND_VISUAL } from '@/config';
+import { useParamsStore, type ParamsState, type SingleHandState } from '@/store';
 
-// ─── Particle data ────────────────────────────────────────────────────────────
-
-interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  alpha: number;
-  size: number;
-  noiseOffsetX: number;
-  noiseOffsetY: number;
-}
-
-// ─── Sketch factory ───────────────────────────────────────────────────────────
-// getParams() returns current store state so Leva tweaks apply live in draw.
-
-function createSketch(container: HTMLElement, getParams: () => ParamsState) {
+function createSketch(container: HTMLElement) {
   return (p: p5) => {
-    const particles: Particle[] = [];
+    let fieldWidth = 0;
+    let fieldHeight = 0;
+    let currentField = new Float32Array(0);
+    let nextField = new Float32Array(0);
+    let fieldImage: p5.Image;
+    let revealLevel = 0;
 
-    function spawnParticle(w: number, h: number, params: ParamsState['particles']): Particle {
-      const angle = p.random(Math.PI * 2);
-      const r = p.random(params.spawnRadiusMin, params.spawnRadiusMax);
-      return {
-        x: w / 2 + Math.cos(angle) * r,
-        y: h / 2 + Math.sin(angle) * r,
-        vx: 0,
-        vy: 0,
-        alpha: p.random(40, params.maxAlpha),
-        size: p.random(1.5, 4.5),
-        noiseOffsetX: p.random(1000),
-        noiseOffsetY: p.random(1000),
-      };
+    function index(x: number, y: number): number {
+      return y * fieldWidth + x;
+    }
+
+    function resizeField(): void {
+      const fluid = useParamsStore.getState().fluid;
+      fieldWidth = Math.max(40, Math.floor(container.clientWidth * fluid.fieldScale));
+      fieldHeight = Math.max(24, Math.floor(container.clientHeight * fluid.fieldScale));
+      currentField = new Float32Array(fieldWidth * fieldHeight);
+      nextField = new Float32Array(fieldWidth * fieldHeight);
+      fieldImage = p.createImage(fieldWidth, fieldHeight);
+    }
+
+    function depositFromHand(h: SingleHandState, fluid: ParamsState['fluid']): void {
+      if (!h.detected) return;
+      const cx = h.x * fieldWidth;
+      const cy = h.y * fieldHeight;
+      const radius = Math.max(3, fluid.depositRadius * Math.min(fieldWidth, fieldHeight));
+      const speedBoost = 1 + h.speed * fluid.velocityInfluence * 40;
+      disturbField(cx, cy, radius, fluid.depositStrength * speedBoost * 0.08);
+    }
+
+    function disturbField(
+      centerX: number,
+      centerY: number,
+      radius: number,
+      amount: number
+    ): void {
+      const minX = Math.max(0, Math.floor(centerX - radius));
+      const maxX = Math.min(fieldWidth - 1, Math.ceil(centerX + radius));
+      const minY = Math.max(0, Math.floor(centerY - radius));
+      const maxY = Math.min(fieldHeight - 1, Math.ceil(centerY + radius));
+      for (let y = minY; y <= maxY; y += 1) {
+        for (let x = minX; x <= maxX; x += 1) {
+          const dx = x - centerX;
+          const dy = y - centerY;
+          const dist = Math.hypot(dx, dy);
+          if (dist > radius) continue;
+          const falloff = 1 - dist / radius;
+          const id = index(x, y);
+          currentField[id] = Math.min(1, currentField[id] + amount * falloff);
+        }
+      }
+    }
+
+    function simulateField(): void {
+      const { fluid } = useParamsStore.getState();
+      for (let y = 1; y < fieldHeight - 1; y += 1) {
+        for (let x = 1; x < fieldWidth - 1; x += 1) {
+          const id = index(x, y);
+          const center = currentField[id];
+          const left = currentField[index(x - 1, y)];
+          const right = currentField[index(x + 1, y)];
+          const top = currentField[index(x, y - 1)];
+          const bottom = currentField[index(x, y + 1)];
+          const diffusion = (left + right + top + bottom) * 0.25;
+          const advected =
+            center * fluid.advectionDrag + (diffusion - center) * fluid.diffusion;
+          nextField[id] = p.constrain(advected * fluid.decay, 0, 1);
+        }
+      }
+      const swap = currentField;
+      currentField = nextField;
+      nextField = swap;
+    }
+
+    /**
+     * Sharp radial marks at each fingertip (drawn after fluid blur) so hand position reads clearly
+     * without turning into a game-style cursor; alpha scales with Landmarker confidence.
+     */
+    function drawFingertipGlyph(
+      screenX: number,
+      screenY: number,
+      rgb: readonly [number, number, number],
+      confidence: number
+    ): void {
+      const v = HAND_VISUAL;
+      const strength = p.constrain(0.45 + confidence * 0.55, 0.45, 1);
+      const ctx = p.drawingContext as CanvasRenderingContext2D;
+      const layers: Array<{ r: number; a: number }> = [
+        { r: v.outerRadiusPx, a: v.outerAlpha * strength },
+        { r: v.midRadiusPx, a: v.midAlpha * strength },
+        { r: v.coreRadiusPx, a: v.coreAlpha * strength },
+      ];
+      for (const { r, a } of layers) {
+        const grad = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, r);
+        grad.addColorStop(0, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`);
+        grad.addColorStop(0.55, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a * 0.35})`);
+        grad.addColorStop(1, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, r, 0, p.TWO_PI);
+        ctx.fill();
+      }
+      ctx.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${v.ringAlpha * strength})`;
+      ctx.lineWidth = v.ringWeightPx;
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, v.midRadiusPx, 0, p.TWO_PI);
+      ctx.stroke();
+    }
+
+    function drawField(): void {
+      fieldImage.loadPixels();
+      let sum = 0;
+      for (let y = 0; y < fieldHeight; y += 1) {
+        for (let x = 0; x < fieldWidth; x += 1) {
+          const id = index(x, y);
+          const v = currentField[id];
+          sum += v;
+          const i4 = id * 4;
+          // Use a narrow tonal range to keep the piece restrained rather than flashy.
+          fieldImage.pixels[i4 + 0] = 150 + v * 55;
+          fieldImage.pixels[i4 + 1] = 175 + v * 35;
+          fieldImage.pixels[i4 + 2] = 210 + v * 20;
+          fieldImage.pixels[i4 + 3] = 12 + v * 180;
+        }
+      }
+      fieldImage.updatePixels();
+      const avg = sum / currentField.length;
+      revealLevel = p.lerp(
+        revealLevel,
+        p.constrain(avg * 2.2, 0, 1),
+        useParamsStore.getState().fluid.settleLerp
+      );
+      useParamsStore.setState((s) => ({
+        fluidState: {
+          revealLevel: revealLevel * s.fluid.revealGain,
+          blurPx: s.fluid.blurPx * (1 - p.constrain(revealLevel * 0.9, 0, 0.9)),
+        },
+      }));
     }
 
     p.setup = () => {
-      const canvas = p.createCanvas(container.clientWidth, container.clientHeight);
+      const canvas = p.createCanvas(container.clientWidth, container.clientHeight, p.P2D);
       canvas.parent(container);
       const el = canvas.elt as HTMLCanvasElement;
       el.style.position = 'absolute';
       el.style.inset = '0';
       el.style.pointerEvents = 'none';
-
-      const { particles: pParams } = getParams();
-      for (let i = 0; i < pParams.count; i++) {
-        particles.push(spawnParticle(p.width, p.height, pParams));
-      }
+      el.style.mixBlendMode = 'screen';
+      resizeField();
     };
 
     p.draw = () => {
-      p.background(7, 11, 20, 28);
+      const { hands, fluid } = useParamsStore.getState();
+      p.clear();
 
-      const { colors, particles: pParams } = getParams();
-      const mx = p.mouseX;
-      const my = p.mouseY;
-      const t = p.frameCount * pParams.noiseScale * 80;
+      if (hands.left.detected) depositFromHand(hands.left, fluid);
+      if (hands.right.detected) depositFromHand(hands.right, fluid);
+      if (!hands.left.detected && !hands.right.detected) {
+        revealLevel *= 0.985;
+      }
 
-      for (const pt of particles) {
-        const nx = p.noise(pt.noiseOffsetX, pt.noiseOffsetY, t) * 2 - 1;
-        const ny = p.noise(pt.noiseOffsetX + 500, pt.noiseOffsetY + 500, t) * 2 - 1;
-        pt.vx += nx * pParams.driftSpeed * 0.15;
-        pt.vy += ny * pParams.driftSpeed * 0.15;
+      simulateField();
+      drawField();
 
-        const dx = mx - pt.x;
-        const dy = my - pt.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > 0 && dist < 280) {
-          pt.vx += (dx / dist) * pParams.mouseAttract;
-          pt.vy += (dy / dist) * pParams.mouseAttract;
-        }
+      p.push();
+      p.imageMode(p.CORNER);
+      p.tint(255, fluid.glowAlpha * 255);
+      const ctx = p.drawingContext as CanvasRenderingContext2D;
+      ctx.filter = `blur(${fluid.blurPx}px)`;
+      p.image(fieldImage, 0, 0, p.width, p.height);
+      ctx.filter = 'none';
+      p.pop();
 
-        pt.vx *= 0.92;
-        pt.vy *= 0.92;
-
-        pt.x += pt.vx;
-        pt.y += pt.vy;
-        pt.noiseOffsetX += pParams.noiseScale;
-        pt.noiseOffsetY += pParams.noiseScale;
-
-        if (pt.x < -20) pt.x = p.width + 20;
-        if (pt.x > p.width + 20) pt.x = -20;
-        if (pt.y < -20) pt.y = p.height + 20;
-        if (pt.y > p.height + 20) pt.y = -20;
-
-        p.noFill();
-        p.strokeWeight(pt.size * pParams.strokeWeight);
-        p.stroke(colors.particleR, colors.particleG, colors.particleB, pt.alpha);
-        p.point(pt.x, pt.y);
+      if (hands.left.detected) {
+        drawFingertipGlyph(
+          hands.left.x * p.width,
+          hands.left.y * p.height,
+          HAND_VISUAL.leftRgb,
+          hands.left.confidence
+        );
+      }
+      if (hands.right.detected) {
+        drawFingertipGlyph(
+          hands.right.x * p.width,
+          hands.right.y * p.height,
+          HAND_VISUAL.rightRgb,
+          hands.right.confidence
+        );
       }
     };
 
     p.windowResized = () => {
       p.resizeCanvas(container.clientWidth, container.clientHeight);
+      resizeField();
     };
   };
 }
-
-// ─── React component ──────────────────────────────────────────────────────────
 
 export default function Sketch() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -122,11 +208,9 @@ export default function Sketch() {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const getParams = () => useParamsStore.getState();
-    p5Ref.current = new p5(createSketch(containerRef.current, getParams));
+    p5Ref.current = new p5(createSketch(containerRef.current));
 
     return () => {
-      // Cleanly remove the p5 sketch (removes canvas + stops draw loop)
       p5Ref.current?.remove();
       p5Ref.current = null;
     };
@@ -136,7 +220,7 @@ export default function Sketch() {
     <div
       ref={containerRef}
       style={{
-        position: "absolute",
+        position: 'absolute',
         inset: 0,
         pointerEvents: 'none',
         overflow: 'hidden',
