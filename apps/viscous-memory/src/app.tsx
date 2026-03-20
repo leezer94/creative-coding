@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { ATMOSPHERE } from '@/config';
-import Sketch from '@/components/Sketch';
-import FluidContentLayer from '@/components/FluidContentLayer';
-import CameraStatusOverlay from '@/components/CameraStatusOverlay';
-import { setupInputBroker } from '@/input/setupInputBroker';
+import Sketch from '@/components/sketch';
+import FluidContentLayer from '@/components/fluid-content-layer';
+import CameraStatusOverlay from '@/components/camera-status-overlay';
+import { setupInputBroker } from '@/input/setup-input-broker';
 
 export default function App() {
   useEffect(() => {
