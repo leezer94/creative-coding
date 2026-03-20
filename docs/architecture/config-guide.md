@@ -43,5 +43,5 @@ status: active
 
 ## 참고 코드
 
-- 유체 디포짓: `apps/viscous-memory/src/components/Sketch.tsx`
-- 손 → 스토어: `apps/viscous-memory/src/input/setupInputBroker.ts`
+- 유체 디포짓: `apps/viscous-memory/src/components/sketch.tsx`
+- 손 → 스토어: `apps/viscous-memory/src/input/setup-input-broker.ts`

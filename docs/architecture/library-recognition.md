@@ -18,7 +18,7 @@ This document tells the agent how to behave when a task touches a known library 
 | Build          | **Vite**                    | Dev server, HMR, `import.meta.env.BASE_URL` for public asset URLs.                                           |
 | UI shell       | **React** + **TypeScript**  | Functional components; camera/ML lifecycle in `useEffect` where needed.                                      |
 | State          | **Zustand**                 | Camera, hands, fluid params, derived reveal/blur for DOM layer.                                              |
-| 2D fluid field | **p5.js**                   | Instance mode inside `Sketch.tsx`; not global mode.                                                          |
+| 2D fluid field | **p5.js**                   | Instance mode inside `sketch.tsx`; not global mode.                                                          |
 | Hand tracking  | **@mediapipe/tasks-vision** | `HandLandmarker` + WASM/model under each app’s `public/mediapipe` (see `scripts/sync-mediapipe-public.mjs`). |
 
 **React Three Fiber / Three.js / Leva** are not part of the current piece; do not add them unless the project scope explicitly expands to 3D again.
