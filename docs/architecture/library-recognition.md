@@ -10,72 +10,38 @@ status: active
 
 This document tells the agent how to behave when a task touches a known library in the stack.
 
-## Stack map
+## Current artwork stack (Viscous Memory)
 
-### Vite
-Use Vite conventions for project structure, scripts, and lean configuration.
-Do not introduce custom build complexity unless clearly required.
+| Concern        | Library                     | Notes                                                                                            |
+| -------------- | --------------------------- | ------------------------------------------------------------------------------------------------ |
+| Build          | **Vite**                    | Dev server, HMR, `import.meta.env.BASE_URL` for public asset URLs.                               |
+| UI shell       | **React** + **TypeScript**  | Functional components; camera/ML lifecycle in `useEffect` where needed.                          |
+| State          | **Zustand**                 | Camera, hands, fluid params, derived reveal/blur for DOM layer.                                  |
+| 2D fluid field | **p5.js**                   | Instance mode inside `Sketch.tsx`; not global mode.                                              |
+| Hand tracking  | **@mediapipe/tasks-vision** | `HandLandmarker` + WASM/model from `public/mediapipe` (see `scripts/sync-mediapipe-public.mjs`). |
 
-### React
-Use functional components.
-Keep state and effects explicit.
-Prefer composition and prop-driven design.
-
-### TypeScript
-Favor strong prop typing, small public surfaces, and readable types.
-Do not invent type-level cleverness unless it meaningfully improves safety.
-
-### React Three Fiber
-Treat R3F as the primary owner of:
-
-- Canvas composition
-- 3D scene graph
-- meshes, lights, cameras, groups
-- frame-driven 3D motion
-
-Prefer idiomatic JSX scene composition.
-Avoid imperative Three.js setup unless the task genuinely requires lower-level control.
-
-### Three.js
-When using lower-level Three.js primitives inside R3F:
-
-- be explicit about lifecycle
-- dispose custom resources when needed
-- keep custom materials, textures, and geometries contained
-- avoid leaking raw Three.js concerns into unrelated UI components
+**React Three Fiber / Three.js / Leva** are not part of the current piece; do not add them unless the project scope explicitly expands to 3D again.
 
 ### p5.js
-Treat p5 as a dedicated 2D sketch system.
-Use instance mode.
-Mount it inside a dedicated React component.
-Always include setup, resize handling, and teardown.
-Do not let p5 take over the application shell.
+
+- Use instance mode; mount in a dedicated component.
+- Include setup, resize handling, and teardown (`p.remove()`).
+- Do not let p5 own the whole app shell.
+
+### MediaPipe
+
+- Prefer same-origin WASM + `.task` under `public/mediapipe` when CDN is blocked.
+- `vite.config.ts` aliases `@mediapipe/tasks-vision` → `vision_bundle.mjs` because the package `exports` field breaks some bundlers.
 
 ## Documentation priority order
 
-When code may be version-sensitive or API-sensitive, use this order:
-
-1. official library docs
-2. project-local references in `docs/`
-3. existing project code patterns
-4. memory
-
-## Required behavior on library-sensitive tasks
-
-When asked to add, refactor, or debug behavior tied to a library:
-
-1. name the library internally
-2. choose the canonical pattern for that library
-3. preserve project architecture boundaries
-4. avoid mixing responsibilities between R3F and p5
-5. mention version-sensitive assumptions when relevant
+1. Official library docs
+2. Project `docs/` (especially `learning/hand-fluid-mediapipe-guide.md`)
+3. Existing code patterns
+4. Memory
 
 ## Red flags
 
-Pause and reconsider if a solution would:
-
-- mix p5 rendering responsibility with R3F scene ownership
-- introduce p5 global mode
-- create unmanaged Three.js resources
-- bypass React component boundaries without a real need
-- add tools or packages before exhausting the current stack
+- Mixing MediaPipe/video logic into p5 `draw` in a messy way — keep broker vs sketch boundaries clear.
+- Introducing p5 global mode.
+- Adding R3F/Three for a small UI tweak on a purely 2D + DOM piece.

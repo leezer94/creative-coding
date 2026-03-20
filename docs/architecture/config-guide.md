@@ -1,51 +1,47 @@
 ---
-title: Config and constants guide
+title: Config and constants guide (Viscous Memory)
 type: reference
 status: active
 ---
 
 # Config and constants guide
 
-All tweakable constants for the artwork live in **`src/config.ts`**. No magic numbers in components; change behavior here.
+모든 조절 가능한 값은 **`src/config.ts`** 에만 둡니다. 컴포넌트 안에 매직 넘버를 흩뿌리지 마세요.
 
-## COLORS
+## ATMOSPHERE
 
-| Key | Role | Notes |
-|-----|------|--------|
-| `background` | Canvas/clear color | Hex; matches `index.css` body background |
-| `meshPrimary` | Main 3D form (torus knot) | Emissive + base color |
-| `meshSecondary` | Half of orbiting icosahedra | Also used for a point light |
-| `meshAccent` | Other half of orbiters | Also used for a point light |
-| `particleR/G/B` | p5 particle stroke | 0–255; alpha is per-particle in PARTICLES |
-| `fogNear` / `fogFar` | Fog start/end distance | World units; depth feel |
+| Key                                  | 역할                                      |
+| ------------------------------------ | ----------------------------------------- |
+| `backgroundTop` / `backgroundBottom` | `App` 그라데이션 배경 (`linear-gradient`) |
 
-## SCENE (3D layer)
+## HAND_TRACKING
 
-| Key | Role | Notes |
-|-----|------|--------|
-| `mainRotationSpeed` | Torus knot rotation | Radians per second |
-| `orbitSpeed` | Orbiting icosahedra | Radians per second |
-| `floatAmplitude` | Up/down float (sine) | World units |
-| `floatPeriod` | Float cycle length | Seconds |
-| `cameraMouseInfluence` | How much camera follows pointer | 0 = none, 1 = full |
-| `cameraMaxTilt` | Max camera tilt | Radians |
+| Key                                       | 역할                                          |
+| ----------------------------------------- | --------------------------------------------- |
+| `maxHands`                                | MediaPipe가 동시에 볼 수 있는 손 수(보통 `2`) |
+| `smoothingPosition` / `smoothingVelocity` | EMA에 가까운 스무딩(작을수록 끈적)            |
+| `minConfidence`                           | handedness 신뢰도 임계값                      |
+| `minimumMotion`                           | “움직임으로 인정” 최소 속도                   |
 
-## PARTICLES (p5 overlay)
+## HAND_VISUAL
 
-| Key | Role | Notes |
-|-----|------|--------|
-| `count` | Number of particles | More = denser trails, higher cost |
-| `strokeWeight` | Line thickness | Multiplied by per-particle size |
-| `maxAlpha` | Max stroke opacity | 0–255 |
-| `mouseAttract` | Pull toward cursor | Stronger = more reactive |
-| `noiseScale` | Perlin noise input step | Drift character |
-| `driftSpeed` | Noise → velocity multiplier | Higher = more movement |
-| `spawnRadiusMin/Max` | Initial spawn ring | Pixels from center |
+검지 끝 **선명한 글리프**(방사형 그라데이션 + 링). 유체 레이어 블러 뒤에 그려짐. `leftRgb` / `rightRgb`로 양손 구분.
 
-## Where to tweak what
+## FLUID
 
-- **Overall mood (dark/light, palette)** → `COLORS`
-- **3D motion (speed, float, camera)** → `SCENE`
-- **Particle density, trail length, interactivity** → `PARTICLES`
+| Key                                                       | 역할                               |
+| --------------------------------------------------------- | ---------------------------------- |
+| `fieldScale`                                              | 유체 그리드 해상도(화면 대비 비율) |
+| `advectionDrag` / `diffusion` / `decay`                   | 번짐·잔향·소멸                     |
+| `depositRadius` / `depositStrength` / `velocityInfluence` | 손끝이 필드에 남기는 압력          |
+| `blurPx` / `glowAlpha`                                    | 시각적 부드러움                    |
+| `revealGain` / `settleLerp`                               | DOM 리빌 요약값 반응               |
 
-Keep new constants in the appropriate section and document with a short comment. Do not scatter magic numbers in `Scene.tsx` or `Sketch.tsx`.
+## CONTENT
+
+타이틀, 리드 카피, 네비 라벨(장식용 텍스트).
+
+## 참고 코드
+
+- 유체 디포짓: `src/components/Sketch.tsx`
+- 손 → 스토어: `src/input/setupInputBroker.ts`
