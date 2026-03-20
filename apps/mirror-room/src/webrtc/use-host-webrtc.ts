@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react';
 import { getIceServers, getSignalUrl } from '@/webrtc/ice';
 import { applyOutboundVideoEncoding } from '@/webrtc/outbound-video-encoding';
 
-type HostSignalingStatus = 'idle' | 'ws-connecting' | 'ws-open' | 'peer-joined' | 'error';
+export type HostSignalingStatus =
+  | 'idle'
+  | 'ws-connecting'
+  | 'ws-open'
+  | 'peer-joined'
+  | 'error';
 
 /**
  * Host: registers with the signal server and initiates an offer when a guest is present.

@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { getIceServers, getSignalUrl } from '@/webrtc/ice';
 import { applyOutboundVideoEncoding } from '@/webrtc/outbound-video-encoding';
 
-type GuestStatus = 'idle' | 'connecting' | 'signal-open' | 'streaming' | 'error';
+export type GuestWebRtcStatus =
+  | 'idle'
+  | 'connecting'
+  | 'signal-open'
+  | 'streaming'
+  | 'error';
 
 /**
  * Guest: waits for an offer, then answers with the local camera stream.
@@ -14,7 +19,7 @@ export function useGuestWebRtc(
   localStream: MediaStream | null,
   active: boolean
 ) {
-  const [status, setStatus] = useState<GuestStatus>('idle');
+  const [status, setStatus] = useState<GuestWebRtcStatus>('idle');
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const localStreamRef = useRef(localStream);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -241,6 +246,47 @@ export function useGuestWebRtc(
       void applyOutboundVideoEncoding(peer);
     });
   }, [localStream, status]);
+
+  /**
+   * 포그라운드 복귀 시 동일 트랙으로 sender를 한 번 더 갱신 — 모바일에서 멈춘 송출이
+   * 카메라 전환(replaceTrack) 후 살아나는 경우와 동일한 완화.
+   */
+  useEffect(() => {
+    if (!active || !sessionId) {
+      return;
+    }
+    let visTimer: ReturnType<typeof setTimeout> | undefined;
+    const bumpSender = () => {
+      const peer = pcRef.current;
+      const stream = localStreamRef.current;
+      if (!peer || !stream || status !== 'streaming') {
+        return;
+      }
+      const vt = stream.getVideoTracks()[0];
+      if (!vt || vt.readyState === 'ended') {
+        return;
+      }
+      const sender = peer.getSenders().find((s) => s.track?.kind === 'video');
+      if (!sender) {
+        return;
+      }
+      void sender.replaceTrack(vt).then(() => {
+        void applyOutboundVideoEncoding(peer);
+      });
+    };
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+      clearTimeout(visTimer);
+      visTimer = setTimeout(() => bumpSender(), 200);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      clearTimeout(visTimer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [active, sessionId, status]);
 
   return { status, remoteStream };
 }
