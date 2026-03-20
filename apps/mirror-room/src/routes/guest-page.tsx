@@ -2,7 +2,7 @@ import { type CSSProperties, useCallback, useEffect, useRef, useState } from 're
 import { Navigate, useParams } from 'react-router-dom';
 import { GUEST_VIDEO } from '@/config';
 import { getSignalUrl } from '@/webrtc/ice';
-import { useGuestWebRtc } from '@/webrtc/useGuestWebRtc';
+import { useGuestWebRtc } from '@/webrtc/use-guest-webrtc';
 
 type LegacyGetUserMedia = (
   c: MediaStreamConstraints,

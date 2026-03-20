@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import type { CompositorMode } from '@/config';
 import { ANALYSIS, DEBUG, DEBUG_PERF } from '@/config';
-import { createFaceLandmarker, statsFromLandmarks } from '@/analysis/faceStats';
-import { createMotionSampler } from '@/analysis/motionSampler';
-import { createCompositorScratch, renderMirrorFrame } from '@/compositor/renderFrame';
+import { createFaceLandmarker, statsFromLandmarks } from '@/analysis/face-stats';
+import { createMotionSampler } from '@/analysis/motion-sampler';
+import { createCompositorScratch, renderMirrorFrame } from '@/compositor/render-frame';
 import type { FrameFeatures } from '@/compositor/types';
 import { getSignalUrl } from '@/webrtc/ice';
 

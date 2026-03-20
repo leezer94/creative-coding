@@ -1,7 +1,7 @@
 import { COMPOSITOR_MODE, type CompositorMode } from '@/config';
-import { drawDelayedEcho } from '@/compositor/delayedEcho';
-import { drawDualGridScan } from '@/compositor/dualGridScan';
-import { applyStrobeVignette, computeStrobeGate } from '@/compositor/strobeGate';
+import { drawDelayedEcho } from '@/compositor/delayed-echo';
+import { drawDualGridScan } from '@/compositor/dual-grid-scan';
+import { applyStrobeVignette, computeStrobeGate } from '@/compositor/strobe-gate';
 import type { FrameFeatures } from '@/compositor/types';
 
 type Scratch = {

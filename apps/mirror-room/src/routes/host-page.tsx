@@ -1,9 +1,9 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { COMPOSITOR_MODE, GUEST_VIDEO, MODE as defaultMode } from '@/config';
 import type { CompositorMode } from '@/config';
-import CompositorCanvas from '@/components/CompositorCanvas';
-import SessionQrCode from '@/components/SessionQrCode';
-import { useHostWebRtc } from '@/webrtc/useHostWebRtc';
+import CompositorCanvas from '@/components/compositor-canvas';
+import SessionQrCode from '@/components/session-qr-code';
+import { useHostWebRtc } from '@/webrtc/use-host-webrtc';
 import { getPublicOrigin, getSignalUrl } from '@/webrtc/ice';
 
 /**

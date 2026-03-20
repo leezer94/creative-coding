@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import GuestPage from '@/routes/GuestPage';
-import HostPage from '@/routes/HostPage';
+import GuestPage from '@/routes/guest-page';
+import HostPage from '@/routes/host-page';
 
 export default function App() {
   return (
