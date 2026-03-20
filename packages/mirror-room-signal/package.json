@@ -1,0 +1,13 @@
+{
+  "name": "mirror-room-signal",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node ./src/server.mjs",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

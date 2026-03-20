@@ -35,17 +35,17 @@ pnpm dev
 ```
 apps/viscous-memory/
 ├── src/
-│   ├── App.tsx                      # 풀스크린 셸 + 입력 브로커 마운트
+│   ├── app.tsx                      # 풀스크린 셸 + 입력 브로커 마운트
 │   ├── main.tsx
 │   ├── index.css
 │   ├── config.ts                    # 분위기·손 추적·유체·카피 상수
 │   ├── store.ts                     # 카메라 / 양손 / 유체 요약 상태
-│   ├── input/setupInputBroker.ts    # getUserMedia + HandLandmarker + rAF
+│   ├── input/setup-input-broker.ts  # getUserMedia + HandLandmarker + rAF
 │   ├── types/mediapipe-tasks-vision.d.ts
 │   └── components/
-│       ├── Sketch.tsx               # p5 유체 필드
-│       ├── FluidContentLayer.tsx    # 리빌되는 텍스트 레이어
-│       └── CameraStatusOverlay.tsx
+│       ├── sketch.tsx               # p5 유체 필드
+│       ├── fluid-content-layer.tsx  # 리빌되는 텍스트 레이어
+│       └── camera-status-overlay.tsx
 ├── vite.config.ts
 └── index.html
 scripts/

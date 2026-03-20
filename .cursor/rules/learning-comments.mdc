@@ -1,12 +1,12 @@
 ---
 description: Add brief "what and why" comments when editing core Viscous Memory code (React shell, p5 fluid, input broker, store, config).
-globs: apps/viscous-memory/src/App.tsx, apps/viscous-memory/src/components/Sketch.tsx, apps/viscous-memory/src/components/FluidContentLayer.tsx, apps/viscous-memory/src/input/setupInputBroker.ts, apps/viscous-memory/src/store.ts, apps/viscous-memory/src/config.ts
+globs: apps/viscous-memory/src/app.tsx, apps/viscous-memory/src/components/sketch.tsx, apps/viscous-memory/src/components/fluid-content-layer.tsx, apps/viscous-memory/src/input/setup-input-broker.ts, apps/viscous-memory/src/store.ts, apps/viscous-memory/src/config.ts
 alwaysApply: false
 ---
 
 # Learning-oriented comments
 
-This project is the **Viscous Memory** hand-fluid piece (p5 + MediaPipe). When you add or change code in the core files (App, Sketch, FluidContentLayer, input broker, store, config):
+This project is the **Viscous Memory** hand-fluid piece (p5 + MediaPipe). When you add or change code in the core files (`app.tsx`, `sketch.tsx`, `fluid-content-layer.tsx`, input broker, store, config):
 
 1. **Add a short comment** that explains *what* the code does and *why* it is done that way (e.g. why this hook, why this order, why this value).
 2. Prefer comments above a block or next to a non-obvious line; avoid commenting every line.

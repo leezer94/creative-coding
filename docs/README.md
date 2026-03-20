@@ -14,13 +14,18 @@ Creative-coding piece **Viscous Memory**: camera hand tracking, p5 fluid field, 
 
 | Directory                        | Purpose                                                  |
 | -------------------------------- | -------------------------------------------------------- |
-| [architecture/](./architecture/) | Config guide, library policy                             |
+| [architecture/](./architecture/) | Config guide, library policy, Mirror Room 공개 배포·SFU  |
 | [learning/](./learning/)         | Hand-Fluid + MediaPipe guide (Korean), short legacy note |
 | [agent/](./agent/)               | Agent persona                                            |
 | [workflow/](./workflow/)         | Task flow, review checklist                              |
+| [ideation/](./ideation/)         | Concept / build prompts for new pieces                   |
 
 ## Quick links
 
+- [**Mirror Room — dual-camera build prompt (EN)**](./ideation/mirror-room-build-prompt.md) — Host (Mac) + Guest (phone WebRTC), compositor spec.
+- [**Mirror Room — app README**](../apps/mirror-room/README.md) — run signal + Vite, LAN env notes.
+- [**Mirror Room — 공개 배포 (정적 프론트 + 공개 WSS)**](./architecture/mirror-room-public-deploy.md) — `VITE_SIGNAL_URL`, 터널/프록시, 체크리스트.
+- [**Mirror Room — SFU 마이그레이션**](./architecture/mirror-room-sfu-migration.md) — 10인 다자 카메라, SFU·SDK, 단계별 계획.
 - [**Hand-Fluid + MediaPipe 학습 가이드**](./learning/hand-fluid-mediapipe-guide.md) — Main technical walkthrough (Korean).
 - [Config guide](./architecture/config-guide.md) — `ATMOSPHERE`, `HAND_TRACKING`, `FLUID`, `CONTENT`.
 - [Library recognition](./architecture/library-recognition.md) — Stack boundaries for agents.

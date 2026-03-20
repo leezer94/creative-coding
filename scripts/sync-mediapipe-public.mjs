@@ -1,6 +1,6 @@
 /**
  * Copies MediaPipe Vision WASM bundles from node_modules into each app's public/mediapipe
- * and downloads the hand landmarker .task file once per app (offline-friendly after install).
+ * and downloads the .task model(s) needed per app (offline-friendly after install).
  * Run automatically on pnpm install via package.json "postinstall".
  *
  * Usage: node scripts/sync-mediapipe-public.mjs [--app-dir <path>] ...
@@ -15,8 +15,19 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '..');
 
-const MODEL_URL =
+const HAND_MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+
+const FACE_MODEL_URL =
+  'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+
+/** @type {Record<string, Array<{ url: string; file: string }>>} */
+const APP_TASKS = {
+  'apps/viscous-memory': [{ url: HAND_MODEL_URL, file: 'hand_landmarker.task' }],
+  'apps/mirror-room': [{ url: FACE_MODEL_URL, file: 'face_landmarker.task' }],
+};
+
+const DEFAULT_TASKS = [{ url: HAND_MODEL_URL, file: 'hand_landmarker.task' }];
 
 const WASM_FILES = [
   'vision_wasm_internal.js',
@@ -49,6 +60,15 @@ function resolveMediapipePackageDir() {
       if (!name.isDirectory()) continue;
       candidates.push(
         path.join(appsDir, name.name, 'node_modules', '@mediapipe', 'tasks-vision'),
+      );
+    }
+  }
+  const packagesDir = path.join(repoRoot, 'packages');
+  if (fs.existsSync(packagesDir)) {
+    for (const name of fs.readdirSync(packagesDir, { withFileTypes: true })) {
+      if (!name.isDirectory()) continue;
+      candidates.push(
+        path.join(packagesDir, name.name, 'node_modules', '@mediapipe', 'tasks-vision'),
       );
     }
   }
@@ -126,6 +146,10 @@ function downloadIfNeeded(url, destPath) {
   });
 }
 
+function tasksForApp(relApp) {
+  return APP_TASKS[relApp] ?? DEFAULT_TASKS;
+}
+
 const appDirs = parseAppDirs(process.argv.slice(2));
 let pkgDir;
 try {
@@ -145,15 +169,18 @@ for (const relApp of appDirs) {
     process.exit(1);
   }
 
-  try {
-    const modelPath = path.join(destDir, 'hand_landmarker.task');
-    await downloadIfNeeded(MODEL_URL, modelPath);
-    process.stdout.write(`MediaPipe public assets ready for ${relApp}.\n`);
-  } catch (e) {
-    console.warn(
-      'Could not download hand_landmarker.task (network may be restricted).',
-      e instanceof Error ? e.message : e,
-    );
-    console.warn(`Copy hand_landmarker.task into ${relApp}/public/mediapipe/ manually, then restart the dev server.`);
+  const tasks = tasksForApp(relApp);
+  for (const task of tasks) {
+    const modelPath = path.join(destDir, task.file);
+    try {
+      await downloadIfNeeded(task.url, modelPath);
+    } catch (e) {
+      console.warn(
+        `Could not download ${task.file} (network may be restricted).`,
+        e instanceof Error ? e.message : e,
+      );
+      console.warn(`Copy ${task.file} into ${relApp}/public/mediapipe/ manually, then restart the dev server.`);
+    }
   }
+  process.stdout.write(`MediaPipe public assets ready for ${relApp}.\n`);
 }

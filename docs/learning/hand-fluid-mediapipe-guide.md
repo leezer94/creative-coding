@@ -58,7 +58,7 @@ flowchart LR
 그래서 `App`의 `useEffect`에서 시작하고, cleanup에서 `teardown()`을 호출합니다.  
 시각 레이어(`Sketch`, `FluidContentLayer`)는 “구독자” 역할만 하도록 두면 구조가 단순해집니다.
 
-관련 파일: [`src/App.tsx`](../../apps/viscous-memory/src/App.tsx)
+관련 파일: [`src/app.tsx`](../../apps/viscous-memory/src/app.tsx)
 
 ---
 
@@ -74,7 +74,7 @@ flowchart LR
 
 `Camera`, `NotAllowedError` 등은 사용자 경험에 직결되므로, 스토어의 `camera.permission` / `message`로 최소한의 문구만 노출합니다.
 
-관련 파일: [`src/input/setupInputBroker.ts`](../../apps/viscous-memory/src/input/setupInputBroker.ts), [`src/components/CameraStatusOverlay.tsx`](../../apps/viscous-memory/src/components/CameraStatusOverlay.tsx)
+관련 파일: [`src/input/setup-input-broker.ts`](../../apps/viscous-memory/src/input/setup-input-broker.ts), [`src/components/camera-status-overlay.tsx`](../../apps/viscous-memory/src/components/camera-status-overlay.tsx)
 
 ---
 
@@ -168,7 +168,7 @@ flowchart LR
 `mix-blend-mode: screen` 등으로 어두운 배경 위에 **은은한 발광**처럼 올립니다.  
 필드 텍스처에 `canvas 2D filter: blur`를 걸어 **잉크 번짐**을 강조합니다.
 
-관련 파일: [`src/components/Sketch.tsx`](../../apps/viscous-memory/src/components/Sketch.tsx)  
+관련 파일: [`src/components/sketch.tsx`](../../apps/viscous-memory/src/components/sketch.tsx)  
 관련 상수: [`src/config.ts`](../../apps/viscous-memory/src/config.ts)의 `FLUID`
 
 ---
@@ -179,7 +179,7 @@ flowchart LR
 
 손가락을 “버튼”처럼 쓰지 않고, **압력과 흐름의 결과**로만 읽히게 하는 방향입니다.
 
-관련 파일: [`src/components/FluidContentLayer.tsx`](../../apps/viscous-memory/src/components/FluidContentLayer.tsx)
+관련 파일: [`src/components/fluid-content-layer.tsx`](../../apps/viscous-memory/src/components/fluid-content-layer.tsx)
 
 ---
 

@@ -1,0 +1,6 @@
+# Netlify: set "Build settings → Base directory" to `apps/mirror-room` for this repo.
+# Set VITE_PUBLIC_ORIGIN and VITE_SIGNAL_URL in Site settings → Environment variables (build).
+
+[build]
+  command = "cd ../.. && pnpm install && pnpm --filter mirror-room build"
+  publish = "dist"
