@@ -2,31 +2,27 @@
   "name": "creative-coding",
   "private": true,
   "version": "0.0.0",
+  "packageManager": "pnpm@9.12.3",
   "type": "module",
   "scripts": {
-    "postinstall": "node scripts/sync-mediapipe-public.mjs",
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "postinstall": "node scripts/sync-mediapipe-public.mjs --app-dir apps/viscous-memory",
+    "dev": "turbo run dev",
+    "dev:viscous-memory": "pnpm --filter viscous-memory dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "preview": "vite preview",
+    "preview": "turbo run preview",
     "prepare": "husky"
-  },
-  "dependencies": {
-    "@mediapipe/tasks-vision": "0.10.33",
-    "p5": "^2.2.2",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "zustand": "^5.0.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
-    "@types/node": "^24.12.0",
-    "@types/p5": "^1.7.7",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.0",
+    "@types/node": "catalog:",
+    "@types/p5": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@types/three": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
@@ -34,9 +30,10 @@
     "husky": "^9.1.7",
     "lint-staged": "^15.4.3",
     "prettier": "^3.4.2",
-    "typescript": "~5.9.3",
+    "turbo": "^2.5.4",
+    "typescript": "catalog:",
     "typescript-eslint": "^8.56.1",
-    "vite": "^8.0.0"
+    "vite": "catalog:"
   },
   "lint-staged": {
     "*.{js,ts,tsx,json,css,md}": [
