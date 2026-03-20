@@ -1,98 +1,43 @@
-# Creative Coding — React Three Fiber + p5.js
+# Viscous Memory — hand-fluid web piece
 
-A dreamy generative artwork starter built with **Vite + React 19 + TypeScript**.  
-It combines a reactive 3D scene with a soft 2D particle overlay.
+카메라로 손을 추적하고, 화면을 **액체처럼 교란**해 텍스트가 드러났다 잠기는 설치작품형 웹 페이지입니다.
 
-## Stack
-
-| Layer | Library | Role |
-|-------|---------|------|
-| 3D scene | [@react-three/fiber](https://github.com/pmndrs/react-three-fiber) + [three.js](https://threejs.org/) | Camera, lights, animated meshes |
-| 3D helpers | [@react-three/drei](https://github.com/pmndrs/drei) | `MeshDistortMaterial` organic wobble |
-| 2D overlay | [p5.js](https://p5js.org/) (instance mode) | Perlin-noise particles, mouse attraction |
-| Build | [Vite](https://vitejs.dev/) | Dev server, HMR, production build |
-
----
+**Stack:** Vite · React 19 · TypeScript · p5.js · Zustand · MediaPipe Hand Landmarker (`@mediapipe/tasks-vision`)
 
 ## Quick start
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
-
----
+브라우저에서 [http://localhost:5173](http://localhost:5173) 을 열고 카메라 권한을 허용합니다.  
+`pnpm install` 시 `public/mediapipe` 에 WASM·모델이 동기화됩니다(자세한 내용은 `docs/learning/hand-fluid-mediapipe-guide.md`).
 
 ## Project structure
 
 ```
 src/
-├── config.ts              # ← All tweakable constants (colors, speed, density)
-├── App.tsx                # App shell – stacks the two layers
-├── main.tsx               # React entry point
-├── index.css              # Minimal global reset
+├── App.tsx                      # 풀스크린 셸 + 입력 브로커 마운트
+├── main.tsx
+├── index.css
+├── config.ts                    # 분위기·손 추적·유체·카피 상수
+├── store.ts                     # 카메라 / 양손 / 유체 요약 상태
+├── input/setupInputBroker.ts    # getUserMedia + HandLandmarker + rAF
+├── types/mediapipe-tasks-vision.d.ts
 └── components/
-    ├── Scene.tsx          # React Three Fiber 3D scene
-    └── Sketch.tsx         # p5.js 2D particle overlay
+    ├── Sketch.tsx               # p5 유체 필드
+    ├── FluidContentLayer.tsx    # 리빌되는 텍스트 레이어
+    └── CameraStatusOverlay.tsx
+scripts/
+└── sync-mediapipe-public.mjs    # postinstall: WASM/모델 → public/mediapipe
 ```
 
----
+## 튜닝
 
-## Architecture
+행동·분위기는 **`src/config.ts`** 의 `ATMOSPHERE`, `HAND_TRACKING`, `FLUID`, `CONTENT` 만 조정하면 됩니다.
 
-### React Three Fiber (`Scene.tsx`)
-Owns the entire 3D rendering pipeline:
-- **Camera rig** – smooth mouse-driven tilt via `useFrame`
-- **Lighting** – ambient + directional + two coloured point lights
-- **MainForm** – a floating, wobbling `TorusKnot` (via `MeshDistortMaterial`)
-- **Orbiters** – six `Icosahedron` meshes in polar orbit
-- **Fog** – depth fade for atmosphere
+## 문서
 
-### p5.js (`Sketch.tsx`)
-Owns the 2D overlay, mounted in instance mode inside a React `useRef` container:
-- Perlin-noise drift per particle
-- Mouse-proximity attraction
-- Alpha-based trail fade
-- Canvas resizes with the window
-- p5 instance is cleaned up on component unmount
-
-The two layers never share rendering state — they are visually composed by CSS stacking
-(`position: absolute`, `pointer-events: none` on the p5 canvas).
-
----
-
-## Customisation
-
-All tweakable values live in **`src/config.ts`**:
-
-```ts
-// Colors
-COLORS.background    // scene clear color
-COLORS.meshPrimary   // main torus knot hue
-COLORS.meshSecondary // orbiter accent hue
-COLORS.meshAccent    // second orbiter accent
-
-// 3D motion
-SCENE.mainRotationSpeed    // radians/s for the main form
-SCENE.orbitSpeed           // radians/s for satellites
-SCENE.floatAmplitude       // vertical float range (world units)
-SCENE.cameraMouseInfluence // mouse tilt sensitivity
-
-// p5 particle layer
-PARTICLES.count            // number of particles
-PARTICLES.mouseAttract     // mouse pull strength
-PARTICLES.driftSpeed       // noise drift multiplier
-PARTICLES.maxAlpha         // particle opacity ceiling
-```
-
----
-
-## Next experiments
-
-1. **Colour themes** – add multiple palettes to `config.ts` and cycle them with a keypress
-2. **Audio reactivity** – use the Web Audio API to drive `floatAmplitude` and `distort` from microphone input
-3. **p5 HUD** – draw frame-rate, pointer coordinates, or generative text in the overlay
-4. **Post-processing** – add `@react-three/postprocessing` bloom/chromatic aberration on the R3F canvas
-5. **GLSL shaders** – swap `meshStandardMaterial` for a custom `shaderMaterial` (via `@react-three/drei`) to explore vertex displacement
+- [docs/README.md](docs/README.md) — 문서 인덱스
+- [Hand-Fluid + MediaPipe 학습 가이드](docs/learning/hand-fluid-mediapipe-guide.md)
