@@ -1,57 +1,54 @@
-// ─── Tweakable constants ──────────────────────────────────────────────────────
-// Modify these to quickly change the visual character of the artwork.
-
-// ── Color palette ─────────────────────────────────────────────────────────────
-export const COLORS = {
-  /** Canvas/background clear color */
-  background: '#070b14',
-
-  // 3D mesh base hue (passed as emissive + material color)
-  meshPrimary: '#7c3aed',   // violet
-  meshSecondary: '#0ea5e9', // sky blue
-  meshAccent: '#f59e0b',    // amber
-
-  // p5 particle stroke color (RGBA components 0–255)
-  particleR: 130,
-  particleG: 180,
-  particleB: 255,
-
-  /** Fog near / far distances */
-  fogNear: 6,
-  fogFar: 18,
+export const ATMOSPHERE = {
+  backgroundTop: '#07080d',
+  backgroundBottom: '#0d1118',
 } as const;
 
-// ── 3D scene motion ───────────────────────────────────────────────────────────
-export const SCENE = {
-  /** Radians per second for the main form spin */
-  mainRotationSpeed: 0.3,
-  /** Radians per second for the orbiting rings */
-  orbitSpeed: 0.18,
-  /** Amplitude of the up/down float sine wave (world units) */
-  floatAmplitude: 0.25,
-  /** Period of the float wave in seconds */
-  floatPeriod: 3.5,
-  /** How strongly the camera tilts toward the pointer (0 = none, 1 = full) */
-  cameraMouseInfluence: 0.08,
-  /** Max camera tilt in radians */
-  cameraMaxTilt: 0.35,
+export const HAND_TRACKING = {
+  /** MediaPipe can track up to this many hands; each is mapped to left/right via handedness. */
+  maxHands: 2,
+  /** Higher = fingertip follows raw landmarks faster (more sensitive, slightly noisier). */
+  smoothingPosition: 0.42,
+  smoothingVelocity: 0.45,
+  /** Lower = accept slightly weaker per-frame handedness scores. */
+  minConfidence: 0.28,
+  /** Lower = register smaller movements as “active”. */
+  minimumMotion: 0.0007,
 } as const;
 
-// ── p5 particle layer ─────────────────────────────────────────────────────────
-export const PARTICLES = {
-  /** How many particles to spawn */
-  count: 80,
-  /** Base stroke weight of each particle */
-  strokeWeight: 1.2,
-  /** Maximum alpha (0–255) */
-  maxAlpha: 160,
-  /** How strongly particles are attracted toward the mouse */
-  mouseAttract: 0.012,
-  /** Perlin noise scale driving drift */
-  noiseScale: 0.004,
-  /** Speed multiplier for noise-driven drift */
-  driftSpeed: 1.0,
-  /** Minimum / maximum initial radius of each particle around center */
-  spawnRadiusMin: 40,
-  spawnRadiusMax: 320,
+/**
+ * Fingertip glyphs drawn after the blurred fluid pass so they stay sharp on screen.
+ * Left = cool tone, right = warm tone — readable separation without toy-like cursors.
+ */
+export const HAND_VISUAL = {
+  outerRadiusPx: 88,
+  midRadiusPx: 40,
+  coreRadiusPx: 9,
+  outerAlpha: 0.2,
+  midAlpha: 0.38,
+  coreAlpha: 0.82,
+  /** Crisp ring at mid radius for legibility. */
+  ringAlpha: 0.92,
+  ringWeightPx: 1.35,
+  leftRgb: [148, 178, 212] as const,
+  rightRgb: [212, 178, 158] as const,
+} as const;
+
+export const FLUID = {
+  fieldScale: 0.22,
+  advectionDrag: 0.93,
+  diffusion: 0.18,
+  decay: 0.968,
+  depositRadius: 0.075,
+  depositStrength: 1.28,
+  velocityInfluence: 1.05,
+  blurPx: 16,
+  glowAlpha: 0.42,
+  revealGain: 1.25,
+  settleLerp: 0.08,
+} as const;
+
+export const CONTENT = {
+  title: 'Viscous Memory',
+  lead: 'Move one or both hands through the dark field. Disturbance reveals language, then lets it sink again.',
+  links: ['Edition One', 'Chamber', 'Archive'],
 } as const;
