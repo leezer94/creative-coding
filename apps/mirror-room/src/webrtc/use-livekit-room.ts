@@ -1,12 +1,13 @@
-/* eslint-disable react-hooks/set-state-in-effect -- LiveKit Room connect/disconnect syncs connection state */
 import { useEffect, useRef, useState } from 'react';
 import { getStageAudioEnabled, getVideoPublishMaxBitrate, VIDEO_PUBLISH } from '@/config';
 import {
+  LocalVideoTrack,
   type RemoteTrack,
   RemoteParticipant,
   Room,
   RoomEvent,
   Track,
+  type VideoCaptureOptions,
 } from 'livekit-client';
 import { getLiveKitTokenUrl, getLiveKitUrl } from '@/webrtc/livekit-config';
 
@@ -36,6 +37,29 @@ function attachRemoteVideo(track: RemoteTrack, el: HTMLVideoElement | null) {
   if (el) {
     track.attach(el);
     void el.play().catch(() => {});
+  }
+}
+
+/** 로컬 카메라 재캡처 — 백그라운드 복귀·트랙 ended 후 “얼어붙은” 송출 복구에 사용 */
+function cameraRestartCaptureOptions(): VideoCaptureOptions {
+  return {
+    resolution: {
+      width: VIDEO_PUBLISH.idealWidth,
+      height: VIDEO_PUBLISH.idealHeight,
+      frameRate: VIDEO_PUBLISH.maxFrameRate,
+    },
+  };
+}
+
+async function restartPublishedCameraVideo(room: Room): Promise<void> {
+  for (const pub of room.localParticipant.videoTrackPublications.values()) {
+    if (pub.source !== Track.Source.Camera) {
+      continue;
+    }
+    const t = pub.track;
+    if (t instanceof LocalVideoTrack) {
+      await t.restartTrack(cameraRestartCaptureOptions());
+    }
   }
 }
 
@@ -146,23 +170,49 @@ export function useLiveKitRoom({
             ? remoteVideoRef
             : extraRemoteVideoRefsRef.current[existing.slotIndex - 1];
         attachRemoteVideo(track, ref?.current ?? null);
+        if (existing.slotIndex === 0) {
+          const el = ref?.current;
+          const fromEl = el?.srcObject as MediaStream | null;
+          if (fromEl && fromEl.getVideoTracks().length > 0) {
+            setRemoteStream(fromEl);
+          } else {
+            setRemoteStream(new MediaStream([track.mediaStreamTrack]));
+          }
+        }
         return;
       }
       const slotIndex = remoteSlots.length;
       const ref =
         slotIndex === 0 ? remoteVideoRef : extraRemoteVideoRefsRef.current[slotIndex - 1];
-      if (ref?.current) {
-        remoteSlots.push({
-          participantId: participant.identity,
-          trackSid,
-          slotIndex,
-        });
-        attachRemoteVideo(track, ref.current);
-        const ms = ref.current.srcObject as MediaStream | null;
-        if (slotIndex === 0) {
-          setRemoteStream(ms);
-        }
-        setHasRemoteParticipant(true);
+
+      remoteSlots.push({
+        participantId: participant.identity,
+        trackSid,
+        slotIndex,
+      });
+      setHasRemoteParticipant(true);
+
+      /** Prefer track-based stream so React state is set even if `attach` fills `srcObject` late. */
+      if (slotIndex === 0) {
+        setRemoteStream(new MediaStream([track.mediaStreamTrack]));
+      }
+
+      const el = ref?.current;
+      if (el) {
+        attachRemoteVideo(track, el);
+      } else {
+        let attempts = 0;
+        const retry = () => {
+          const v = ref?.current;
+          if (v) {
+            attachRemoteVideo(track, v);
+            return;
+          }
+          if (attempts++ < 120) {
+            requestAnimationFrame(retry);
+          }
+        };
+        requestAnimationFrame(retry);
       }
     };
 
@@ -179,6 +229,8 @@ export function useLiveKitRoom({
         setHasRemoteParticipant(false);
       }
     };
+
+    let resumeLocalCleanup: (() => void) | undefined;
 
     (async () => {
       try {
@@ -197,10 +249,58 @@ export function useLiveKitRoom({
           publishVideo && getStageAudioEnabled()
         );
 
+        const endedUnsubs: (() => void)[] = [];
+        const endedBound = new WeakSet<MediaStreamTrack>();
+
+        const scheduleRestartLocalCamera = () => {
+          if (cancelled || !publishVideo) {
+            return;
+          }
+          void restartPublishedCameraVideo(room).catch(() => {});
+        };
+
+        let visTimer: ReturnType<typeof setTimeout> | undefined;
+        const onVisibility = () => {
+          if (document.visibilityState !== 'visible') {
+            return;
+          }
+          clearTimeout(visTimer);
+          visTimer = setTimeout(() => scheduleRestartLocalCamera(), 150);
+        };
+        const onPageShow = (e: PageTransitionEvent) => {
+          if (e.persisted) {
+            scheduleRestartLocalCamera();
+          }
+        };
+
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('pageshow', onPageShow);
+
+        const bindLocalVideoEnded = (lv: LocalVideoTrack) => {
+          const mst = lv.mediaStreamTrack;
+          if (endedBound.has(mst)) {
+            return;
+          }
+          endedBound.add(mst);
+          const onEnded = () => scheduleRestartLocalCamera();
+          mst.addEventListener('ended', onEnded);
+          endedUnsubs.push(() => mst.removeEventListener('ended', onEnded));
+        };
+
+        resumeLocalCleanup = () => {
+          clearTimeout(visTimer);
+          document.removeEventListener('visibilitychange', onVisibility);
+          window.removeEventListener('pageshow', onPageShow);
+          endedUnsubs.forEach((fn) => fn());
+        };
+
         room.localParticipant.videoTrackPublications.forEach((pub) => {
           if (pub.track && localVideoRef.current) {
             pub.track.attach(localVideoRef.current);
             void localVideoRef.current.play().catch(() => {});
+          }
+          if (pub.track instanceof LocalVideoTrack) {
+            bindLocalVideoEnded(pub.track);
           }
         });
 
@@ -209,14 +309,29 @@ export function useLiveKitRoom({
             pub.track.attach(localVideoRef.current);
             void localVideoRef.current.play().catch(() => {});
           }
+          if (pub.track instanceof LocalVideoTrack) {
+            bindLocalVideoEnded(pub.track);
+          }
         });
 
-        room.remoteParticipants.forEach((p) => {
-          p.videoTrackPublications.forEach((pub) => {
-            if (pub.track) {
-              assignRemoteVideo(p, pub.track, pub.trackSid);
-            }
-          });
+        /** Prefer `host-*` identity so slot 0 is the stage feed when order differs. */
+        const remotesSorted = [...room.remoteParticipants.values()].sort((a, b) => {
+          const ah = a.identity.startsWith('host-') ? 0 : 1;
+          const bh = b.identity.startsWith('host-') ? 0 : 1;
+          return ah - bh;
+        });
+        const scanRemoteVideo = () => {
+          for (const p of remotesSorted) {
+            p.videoTrackPublications.forEach((pub) => {
+              if (pub.track) {
+                assignRemoteVideo(p, pub.track, pub.trackSid);
+              }
+            });
+          }
+        };
+        /** Adaptive stream / 레이아웃이 잡힌 뒤 스캔하면 구독이 안정적인 경우가 많음. */
+        requestAnimationFrame(() => {
+          requestAnimationFrame(scanRemoteVideo);
         });
 
         room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
@@ -251,6 +366,7 @@ export function useLiveKitRoom({
 
     return () => {
       cancelled = true;
+      resumeLocalCleanup?.();
       remoteSlots.length = 0;
       room.disconnect();
       roomRef.current = null;

@@ -17,6 +17,7 @@ import {
   isLiveKitConfigured,
   isProductionLiveKitMissing,
 } from '@/webrtc/livekit-config';
+import { formatGuestConnectionLine } from '@/webrtc/connection-messages';
 import { getSignalUrl, isProductionSignalMissing } from '@/webrtc/ice';
 import { useGuestWebRtc } from '@/webrtc/use-guest-webrtc';
 import { useLiveKitRoom } from '@/webrtc/use-livekit-room';
@@ -75,10 +76,17 @@ export default function GuestPage() {
     remoteVideoRef: remoteVideo,
     extraRemoteVideoRefs: [],
     publishVideo: active,
-    adaptiveStream: getLiveKitGuestAdaptiveStream(),
+    /**
+     * 게스트 무대는 전체 화면이라야 하는데, adaptiveStream이 뷰포트·레이아웃 전 0×0에 가깝게 잡히면
+     * 구독/레이어 선택이 꼬여 “대기 중”만 보이는 경우가 있다. 무대는 풀 구독 우선.
+     * (대역 절약은 `getLiveKitGuestAdaptiveStream()` + env로 다시 켤 수 있음)
+     */
+    adaptiveStream:
+      import.meta.env.VITE_LIVEKIT_GUEST_ADAPTIVE_STREAM === 'true'
+        ? getLiveKitGuestAdaptiveStream()
+        : false,
   });
 
-  const status = useSfu ? livekit.status : legacyStatus;
   const remoteStream = useSfu ? livekit.remoteStream : legacyRemote;
 
   /**
@@ -205,16 +213,81 @@ export default function GuestPage() {
     };
   }, [stream]);
 
+  /** LiveKit은 `attach()`로만 srcObject가 바뀌는 경우가 있어, 무대 <video> 이벤트로도 표시를 맞춘다. */
+  const [hostVideoFromElement, setHostVideoFromElement] = useState(false);
+  useEffect(() => {
+    if (!useSfu || !active) {
+      queueMicrotask(() => setHostVideoFromElement(false));
+      return;
+    }
+    const el = remoteVideo.current;
+    if (!el) {
+      return;
+    }
+
+    let unTrackSubs: Array<() => void> = [];
+
+    const sync = () => {
+      const s = el.srcObject as MediaStream | null;
+      if (!s) {
+        queueMicrotask(() => setHostVideoFromElement(false));
+        return;
+      }
+      const ok = s.getVideoTracks().some((t) => t.readyState !== 'ended');
+      queueMicrotask(() => setHostVideoFromElement(ok));
+    };
+
+    const bindTracks = () => {
+      unTrackSubs.forEach((u) => u());
+      unTrackSubs = [];
+      const s = el.srcObject as MediaStream | null;
+      if (!s) {
+        return;
+      }
+      for (const t of s.getVideoTracks()) {
+        const u = () => sync();
+        t.addEventListener('unmute', u);
+        t.addEventListener('ended', u);
+        unTrackSubs.push(() => {
+          t.removeEventListener('unmute', u);
+          t.removeEventListener('ended', u);
+        });
+      }
+    };
+
+    const onMedia = () => {
+      sync();
+      bindTracks();
+    };
+
+    onMedia();
+    el.addEventListener('loadedmetadata', onMedia);
+    el.addEventListener('playing', onMedia);
+    el.addEventListener('emptied', onMedia);
+
+    return () => {
+      el.removeEventListener('loadedmetadata', onMedia);
+      el.removeEventListener('playing', onMedia);
+      el.removeEventListener('emptied', onMedia);
+      unTrackSubs.forEach((u) => u());
+    };
+  }, [useSfu, active, remoteStream]);
+
   if (!sessionId) {
     return <Navigate to="/" replace />;
   }
 
-  const stageLabel =
-    status === 'streaming' && remoteStream
-      ? '무대(호스트)'
-      : active
-        ? '호스트 영상 대기 중…'
-        : '스트리밍을 시작하면 무대가 표시됩니다';
+  /** P2P: `remoteStream` 상태. SFU: 훅의 stream + 무대 video 요소(srcObject) — attach만 된 경우 대비. */
+  const hasHostStageVideoFromState =
+    remoteStream != null &&
+    remoteStream.getVideoTracks().some((t) => t.readyState !== 'ended');
+  const hasHostStageVideo = hasHostStageVideoFromState || hostVideoFromElement;
+
+  const stageLabel = hasHostStageVideo
+    ? '무대(호스트)'
+    : active
+      ? '호스트 영상 대기 중…'
+      : '스트리밍을 시작하면 무대가 표시됩니다';
 
   return (
     <div
@@ -272,7 +345,7 @@ export default function GuestPage() {
               background: '#0a0a10',
             }}
           />
-          {(!remoteStream || remoteStream.getVideoTracks().length === 0) && (
+          {!hasHostStageVideo && (
             <div
               style={{
                 position: 'absolute',
@@ -444,7 +517,9 @@ export default function GuestPage() {
               </p>
             )}
             <div>시그널: {getSignalUrl() || '(미설정)'}</div>
-            <div>연결 상태: {status}</div>
+            <div>
+              연결 상태: {formatGuestConnectionLine(useSfu, livekit.status, legacyStatus)}
+            </div>
             <p style={{ margin: '10px 0 0', fontSize: 11, color: '#7d7a90' }}>
               일회성 세션입니다. 카메라 영상은 WebRTC로 호스트에만 전달되며, 시그널
               핸드셰이크 외 서버 업로드는 없습니다. 프로젝터 영상은 모션 요약 등으로
