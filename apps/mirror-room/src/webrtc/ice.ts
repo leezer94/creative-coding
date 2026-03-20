@@ -4,11 +4,13 @@ function isLoopbackHost(): boolean {
 }
 
 /**
- * Page origin for shareable links (QR, copy URL). On localhost, uses `VITE_PUBLIC_ORIGIN` when set.
+ * Page origin for shareable links (QR, copy URL).
+ * Uses `VITE_PUBLIC_ORIGIN` when set on localhost (LAN HTTPS for phones) or in production
+ * (canonical URL for QR when set at build time).
  */
 export function getPublicOrigin(): string {
   const configured = import.meta.env.VITE_PUBLIC_ORIGIN?.trim().replace(/\/$/, '');
-  if (isLoopbackHost() && configured) {
+  if (configured && (isLoopbackHost() || import.meta.env.PROD)) {
     return configured;
   }
   return window.location.origin;
@@ -20,20 +22,37 @@ export function getPublicOrigin(): string {
  */
 export const DEV_SIGNAL_WSS_PATH = '/__mirror_room_signal';
 
+/**
+ * WebSocket URL for `mirror-room-signal`.
+ *
+ * - **Production (`vite build`):** must set `VITE_SIGNAL_URL` (e.g. `wss://signal.example.com`).
+ *   Static hosts (Netlify, Vercel, etc.) do not run the Vite dev proxy — same-origin `/__mirror_room_signal` is not available.
+ * - **Development:** if unset, uses the Vite WSS proxy on HTTPS, or `ws://<public-origin-host>:8787` on HTTP/LAN.
+ */
 export function getSignalUrl(): string {
   const explicit = import.meta.env.VITE_SIGNAL_URL?.trim();
   if (explicit) {
     return explicit;
   }
-  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-    return `wss://${window.location.host}${DEV_SIGNAL_WSS_PATH}`;
+
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    if (window.location.protocol === 'https:') {
+      return `wss://${window.location.host}${DEV_SIGNAL_WSS_PATH}`;
+    }
+    try {
+      const u = new URL(getPublicOrigin());
+      return `ws://${u.hostname}:8787`;
+    } catch {
+      return `ws://${window.location.hostname}:8787`;
+    }
   }
-  try {
-    const u = new URL(getPublicOrigin());
-    return `ws://${u.hostname}:8787`;
-  } catch {
-    return `ws://${window.location.hostname}:8787`;
-  }
+
+  return '';
+}
+
+/** True when a production bundle was built without `VITE_SIGNAL_URL` (WebRTC signaling cannot work). */
+export function isProductionSignalMissing(): boolean {
+  return import.meta.env.PROD && getSignalUrl() === '';
 }
 
 export function getIceServers(): RTCIceServer[] {
