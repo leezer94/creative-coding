@@ -7,9 +7,16 @@ import { createCompositorScratch, renderMirrorFrame } from '@/compositor/render-
 import type { FrameFeatures } from '@/compositor/types';
 import { getSignalUrl } from '@/webrtc/ice';
 
+export type LaneARemotePolicy = 'spotlight' | 'max';
+
 type Props = {
   videoS: React.RefObject<HTMLVideoElement | null>;
   videoA: React.RefObject<HTMLVideoElement | null>;
+  /** Extra remote cameras (e.g. SFU multi-participant). Motion uses `max` or spotlight. */
+  laneARemoteRefs?: React.RefObject<HTMLVideoElement | null>[];
+  /** Which remote ref drives face stats for lane A when extras exist (default 0 = `videoA`). */
+  laneASpotlightIndex?: number;
+  laneARemotePolicy?: LaneARemotePolicy;
   guestConnected: boolean;
   mode: CompositorMode;
   debug: boolean;
@@ -21,6 +28,9 @@ type Props = {
 export default function CompositorCanvas({
   videoS,
   videoA,
+  laneARemoteRefs = [],
+  laneASpotlightIndex = 0,
+  laneARemotePolicy = 'max',
   guestConnected,
   mode,
   debug,
@@ -51,9 +61,15 @@ export default function CompositorCanvas({
   const modeRef = useRef(mode);
   const guestRef = useRef(guestConnected);
   const debugRef = useRef(debug);
+  const laneAExtrasRef = useRef(laneARemoteRefs);
+  const laneASpotlightRef = useRef(laneASpotlightIndex);
+  const laneAPolicyRef = useRef(laneARemotePolicy);
   modeRef.current = mode;
   guestRef.current = guestConnected;
   debugRef.current = debug;
+  laneAExtrasRef.current = laneARemoteRefs;
+  laneASpotlightRef.current = laneASpotlightIndex;
+  laneAPolicyRef.current = laneARemotePolicy;
 
   useEffect(() => {
     let raf = 0;
@@ -94,14 +110,47 @@ export default function CompositorCanvas({
         }
 
         const vSReady = vS.videoWidth > 0 && vS.videoHeight > 0;
-        const vAReady =
-          !!vA &&
-          vA.videoWidth > 0 &&
-          vA.videoHeight > 0 &&
-          vA.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+
+        const laneAVideos: (HTMLVideoElement | null)[] = [vA];
+        for (const r of laneAExtrasRef.current) {
+          laneAVideos.push(r.current);
+        }
+
+        const isVideoReady = (el: HTMLVideoElement | null) =>
+          !!el &&
+          el.videoWidth > 0 &&
+          el.videoHeight > 0 &&
+          el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
 
         const motionS = vSReady ? motionSRef.current(vS) : 0;
-        const motionA = guestOn && vAReady ? motionARef.current(vA!) : 0;
+        let motionA = 0;
+        if (guestOn) {
+          const policy = laneAPolicyRef.current;
+          const motions: number[] = [];
+          for (const el of laneAVideos) {
+            if (isVideoReady(el)) {
+              motions.push(motionARef.current(el!));
+            }
+          }
+          if (motions.length === 0) {
+            motionA = 0;
+          } else if (policy === 'spotlight') {
+            const idx = Math.min(
+              laneASpotlightRef.current,
+              Math.max(0, motions.length - 1)
+            );
+            motionA = motions[idx] ?? 0;
+          } else {
+            motionA = Math.max(...motions);
+          }
+        }
+
+        const spotlightIdx = Math.min(
+          laneASpotlightRef.current,
+          Math.max(0, laneAVideos.length - 1)
+        );
+        const vAFace = laneAVideos[spotlightIdx] ?? vA;
+        const vAReady = isVideoReady(vAFace);
 
         const lms = faceLandmarkersRef.current;
         if (lms && vSReady && t - lastFaceMsRef.current > 1000 / ANALYSIS.faceDetectHz) {
@@ -109,8 +158,8 @@ export default function CompositorCanvas({
           try {
             const rS = lms.laneS.detectForVideo(vS, t);
             faceStatsRef.current.s = statsFromLandmarks(rS);
-            if (guestOn && vAReady && vA) {
-              const rA = lms.laneA.detectForVideo(vA, t);
+            if (guestOn && vAReady && vAFace) {
+              const rA = lms.laneA.detectForVideo(vAFace, t);
               faceStatsRef.current.a = statsFromLandmarks(rA);
             } else {
               faceStatsRef.current.a = { faceCount: 0, spread: 0 };
