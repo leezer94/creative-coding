@@ -1,24 +1,16 @@
-/**
- * App.tsx
- *
- * App shell — composes the 3D scene and the 2D p5 overlay.
- *
- * Layout:
- *   - A full-viewport container holds both layers stacked via position: absolute.
- *   - Scene (React Three Fiber) renders underneath.
- *   - Sketch (p5.js) renders on top as a transparent overlay.
- *
- * Mouse events land on the R3F canvas; the p5 canvas has pointer-events: none
- * so it reads window.mouseX/mouseY without blocking the 3D interaction.
- */
-
-import Scene from '@/components/Scene';
+import { useEffect } from 'react';
+import { ATMOSPHERE } from '@/config';
 import Sketch from '@/components/Sketch';
-import LevaPanel from '@/components/LevaPanel';
-import { useParamsStore, type ParamsState } from '@/store';
+import FluidContentLayer from '@/components/FluidContentLayer';
+import CameraStatusOverlay from '@/components/CameraStatusOverlay';
+import { setupInputBroker } from '@/input/setupInputBroker';
 
 export default function App() {
-  const particleCount = useParamsStore((s: ParamsState) => s.particles.count);
+  useEffect(() => {
+    // Keep camera and tracking lifecycle in one place so visual layers stay purely declarative.
+    const broker = setupInputBroker();
+    return () => broker.teardown();
+  }, []);
 
   return (
     <div
@@ -27,11 +19,12 @@ export default function App() {
         width: '100vw',
         height: '100vh',
         overflow: 'hidden',
+        background: `linear-gradient(180deg, ${ATMOSPHERE.backgroundTop} 0%, ${ATMOSPHERE.backgroundBottom} 100%)`,
       }}
     >
-      <LevaPanel />
-      <Scene />
-      <Sketch key={particleCount} />
+      <Sketch />
+      <FluidContentLayer />
+      <CameraStatusOverlay />
     </div>
   );
 }
