@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { CompositorMode } from '@/config';
 import { ANALYSIS, DEBUG, DEBUG_PERF } from '@/config';
-import { createFaceLandmarker, statsFromLandmarks } from '@/analysis/face-stats';
+import { createFaceLandmarkerPair, statsFromLandmarks } from '@/analysis/face-stats';
 import { createMotionSampler } from '@/analysis/motion-sampler';
 import { createCompositorScratch, renderMirrorFrame } from '@/compositor/render-frame';
 import type { FrameFeatures } from '@/compositor/types';
@@ -40,8 +40,8 @@ export default function CompositorCanvas({
       Math.round((ANALYSIS.motionSampleSize * 9) / 16)
     )
   );
-  const faceLandmarkerRef =
-    useRef<Awaited<ReturnType<typeof createFaceLandmarker>>>(null);
+  const faceLandmarkersRef =
+    useRef<Awaited<ReturnType<typeof createFaceLandmarkerPair>>>(null);
   const lastFaceMsRef = useRef(0);
   const faceStatsRef = useRef({
     s: { faceCount: 0, spread: 0 },
@@ -59,10 +59,10 @@ export default function CompositorCanvas({
     let raf = 0;
     let landmarkerReady = false;
 
-    createFaceLandmarker().then((lm) => {
-      faceLandmarkerRef.current = lm;
-      landmarkerReady = !!lm;
-      if (!lm && DEBUG) {
+    createFaceLandmarkerPair().then((pair) => {
+      faceLandmarkersRef.current = pair;
+      landmarkerReady = !!pair;
+      if (!pair && DEBUG) {
         console.info(
           'Face landmarker skipped (missing model or load error). Motion-only compositor.'
         );
@@ -103,14 +103,14 @@ export default function CompositorCanvas({
         const motionS = vSReady ? motionSRef.current(vS) : 0;
         const motionA = guestOn && vAReady ? motionARef.current(vA!) : 0;
 
-        const lm = faceLandmarkerRef.current;
-        if (lm && vSReady && t - lastFaceMsRef.current > 1000 / ANALYSIS.faceDetectHz) {
+        const lms = faceLandmarkersRef.current;
+        if (lms && vSReady && t - lastFaceMsRef.current > 1000 / ANALYSIS.faceDetectHz) {
           lastFaceMsRef.current = t;
           try {
-            const rS = lm.detectForVideo(vS, t);
+            const rS = lms.laneS.detectForVideo(vS, t);
             faceStatsRef.current.s = statsFromLandmarks(rS);
             if (guestOn && vAReady && vA) {
-              const rA = lm.detectForVideo(vA, t);
+              const rA = lms.laneA.detectForVideo(vA, t);
               faceStatsRef.current.a = statsFromLandmarks(rA);
             } else {
               faceStatsRef.current.a = { faceCount: 0, spread: 0 };
@@ -190,8 +190,10 @@ export default function CompositorCanvas({
     raf = requestAnimationFrame(loop);
     return () => {
       cancelAnimationFrame(raf);
-      faceLandmarkerRef.current?.close();
-      faceLandmarkerRef.current = null;
+      const pair = faceLandmarkersRef.current;
+      pair?.laneS.close();
+      pair?.laneA.close();
+      faceLandmarkersRef.current = null;
     };
   }, [videoA, videoS]);
 
