@@ -69,13 +69,25 @@ Techno/installation-style dual-camera piece: **Host (Mac)** runs Lane S (local w
 
 5. Optional TURN (production / strict NAT): set `VITE_ICE_SERVERS` to a JSON string array of `RTCIceServer` objects. Update guest privacy copy if traffic leaves the LAN.
 
+## Public deploy (QR from anywhere)
+
+정적 프론트만 올리면 **페이지**는 열리지만, **시그널이 공인 `wss://`로 안 보이면** LTE 등 다른 네트워크의 폰은 WebRTC를 맺지 못합니다.
+
+1. **`mirror-room-signal`을 인터넷에서 `wss://`로 노출** — 리버스 프록시(Let’s Encrypt), PaaS, 또는 cloudflared/ngrok 같은 터널.
+2. **프로덕션 빌드할 때 반드시 설정:**
+   - `VITE_PUBLIC_ORIGIN=https://<your-static-site>` (QR·게스트 링크)
+   - `VITE_SIGNAL_URL=wss://<your-public-signal-host>` (**필수** — Vite 프록시는 프로덕션 정적 호스팅에 없음)
+3. 상세 체크리스트: [`docs/architecture/mirror-room-public-deploy.md`](../../docs/architecture/mirror-room-public-deploy.md)
+
+정적 호스팅 예시 설정: 이 디렉터리의 [`netlify.toml`](./netlify.toml), [`vercel.json`](./vercel.json) (각 플랫폼에서 프로젝트/베이스 디렉터리를 `apps/mirror-room`에 맞추고, 빌드 환경 변수에 `VITE_*`를 설정).
+
 ## Scripts
 
-| Command                           | Purpose              |
-| --------------------------------- | -------------------- |
-| `pnpm dev:mirror-room`            | Vite dev w/ `--host` |
-| `pnpm dev:mirror-room-signal`     | WebRTC signaling     |
-| `pnpm --filter mirror-room build` | Production build     |
+| Command                           | Purpose                                   |
+| --------------------------------- | ----------------------------------------- |
+| `pnpm dev:mirror-room`            | Vite dev w/ `--host`                      |
+| `pnpm dev:mirror-room-signal`     | WebRTC signaling                          |
+| `pnpm --filter mirror-room build` | Production build (`VITE_SIGNAL_URL` 필수) |
 
 ## Defaults
 
@@ -86,3 +98,7 @@ Techno/installation-style dual-camera piece: **Host (Mac)** runs Lane S (local w
 ## Spec
 
 See [`docs/ideation/mirror-room-build-prompt.md`](../../docs/ideation/mirror-room-build-prompt.md).
+
+**공개 URL + 공개 시그널 배포**는 [`docs/architecture/mirror-room-public-deploy.md`](../../docs/architecture/mirror-room-public-deploy.md).
+
+**다자(예: 10인) 카메라 공유 / SFU 전환** 계획은 [`docs/architecture/mirror-room-sfu-migration.md`](../../docs/architecture/mirror-room-sfu-migration.md)를 참고하세요.
