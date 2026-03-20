@@ -18,6 +18,45 @@ export const ANALYSIS = {
   faceDetectHz: 12,
 } as const;
 
+/**
+ * Build-time compositor analysis tuning. Defaults match `ANALYSIS`.
+ * - `VITE_LOW_POWER_ANALYSIS=true`: smaller motion grid + lower face Hz (exhibitions / weak devices).
+ * - Optional overrides: `VITE_ANALYSIS_MOTION_SAMPLE_SIZE` (32–256), `VITE_ANALYSIS_FACE_DETECT_HZ` (1–30).
+ */
+export function getAnalysisConfig(): {
+  motionSampleSize: number;
+  faceDetectHz: number;
+} {
+  if (import.meta.env.VITE_LOW_POWER_ANALYSIS === 'true') {
+    return {
+      motionSampleSize: 64,
+      faceDetectHz: 8,
+    };
+  }
+  let motionSampleSize: number = ANALYSIS.motionSampleSize;
+  let faceDetectHz: number = ANALYSIS.faceDetectHz;
+  const rawSize = import.meta.env.VITE_ANALYSIS_MOTION_SAMPLE_SIZE?.trim();
+  const rawHz = import.meta.env.VITE_ANALYSIS_FACE_DETECT_HZ?.trim();
+  if (rawSize) {
+    const n = Number.parseInt(rawSize, 10);
+    if (!Number.isNaN(n) && n >= 32 && n <= 256) {
+      motionSampleSize = n;
+    }
+  }
+  if (rawHz) {
+    const n = Number.parseInt(rawHz, 10);
+    if (!Number.isNaN(n) && n >= 1 && n <= 30) {
+      faceDetectHz = n;
+    }
+  }
+  return { motionSampleSize, faceDetectHz };
+}
+
+/** When true, compositor runs motion-only (no MediaPipe face landmarker). */
+export function getSkipFaceLandmarker(): boolean {
+  return import.meta.env.VITE_SKIP_FACE_LANDMARKER === 'true';
+}
+
 export const DEBUG = false;
 export const DEBUG_PERF = false;
 

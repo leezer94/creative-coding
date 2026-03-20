@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { CompositorMode } from '@/config';
-import { ANALYSIS, DEBUG, DEBUG_PERF } from '@/config';
+import { DEBUG, DEBUG_PERF, getAnalysisConfig, getSkipFaceLandmarker } from '@/config';
 import { createFaceLandmarkerPair, statsFromLandmarks } from '@/analysis/face-stats';
 import { createMotionSampler } from '@/analysis/motion-sampler';
 import { createCompositorScratch, renderMirrorFrame } from '@/compositor/render-frame';
@@ -35,19 +35,22 @@ export default function CompositorCanvas({
   mode,
   debug,
 }: Props) {
+  const analysis = getAnalysisConfig();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mainCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const feedbackCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const feedbackRef = useRef<HTMLCanvasElement | null>(null);
   const scratchRef = useRef(createCompositorScratch());
   const motionSRef = useRef(
     createMotionSampler(
-      ANALYSIS.motionSampleSize,
-      Math.round((ANALYSIS.motionSampleSize * 9) / 16)
+      analysis.motionSampleSize,
+      Math.round((analysis.motionSampleSize * 9) / 16)
     )
   );
   const motionARef = useRef(
     createMotionSampler(
-      ANALYSIS.motionSampleSize,
-      Math.round((ANALYSIS.motionSampleSize * 9) / 16)
+      analysis.motionSampleSize,
+      Math.round((analysis.motionSampleSize * 9) / 16)
     )
   );
   const faceLandmarkersRef =
@@ -64,6 +67,8 @@ export default function CompositorCanvas({
   const laneAExtrasRef = useRef(laneARemoteRefs);
   const laneASpotlightRef = useRef(laneASpotlightIndex);
   const laneAPolicyRef = useRef(laneARemotePolicy);
+  const faceDetectHzRef = useRef(analysis.faceDetectHz);
+  faceDetectHzRef.current = analysis.faceDetectHz;
   modeRef.current = mode;
   guestRef.current = guestConnected;
   debugRef.current = debug;
@@ -71,25 +76,33 @@ export default function CompositorCanvas({
   laneASpotlightRef.current = laneASpotlightIndex;
   laneAPolicyRef.current = laneARemotePolicy;
 
+  // RAF loop reads latest UI state via refs; effect deps only [videoA, videoS] so video refs stay stable.
   useEffect(() => {
     let raf = 0;
     let landmarkerReady = false;
 
-    createFaceLandmarkerPair().then((pair) => {
-      faceLandmarkersRef.current = pair;
-      landmarkerReady = !!pair;
-      if (!pair && DEBUG) {
-        console.info(
-          'Face landmarker skipped (missing model or load error). Motion-only compositor.'
-        );
-      }
-    });
+    if (!getSkipFaceLandmarker()) {
+      createFaceLandmarkerPair().then((pair) => {
+        faceLandmarkersRef.current = pair;
+        landmarkerReady = !!pair;
+        if (!pair && DEBUG) {
+          console.info(
+            'Face landmarker skipped (missing model or load error). Motion-only compositor.'
+          );
+        }
+      });
+    } else if (DEBUG) {
+      console.info(
+        'Face landmarker disabled (VITE_SKIP_FACE_LANDMARKER). Motion-only compositor.'
+      );
+    }
 
     const feedback = document.createElement('canvas');
     feedbackRef.current = feedback;
     let frames = 0;
     let lastPerf = performance.now();
 
+    // Effect-scoped refs: latest props for the RAF loop; deps intentionally [videoA, videoS] only.
     const loop = (t: number) => {
       const canvas = canvasRef.current;
       const vS = videoS.current;
@@ -97,6 +110,7 @@ export default function CompositorCanvas({
       const guestOn = guestRef.current;
       const modeCur = modeRef.current;
       const debugOn = debugRef.current;
+      const faceHz = faceDetectHzRef.current;
 
       if (canvas && vS) {
         const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -107,6 +121,15 @@ export default function CompositorCanvas({
           canvas.height = h;
           feedback.width = w;
           feedback.height = h;
+          mainCtxRef.current = canvas.getContext('2d');
+          feedbackCtxRef.current = feedback.getContext('2d');
+        } else {
+          if (!mainCtxRef.current) {
+            mainCtxRef.current = canvas.getContext('2d');
+          }
+          if (!feedbackCtxRef.current) {
+            feedbackCtxRef.current = feedback.getContext('2d');
+          }
         }
 
         const vSReady = vS.videoWidth > 0 && vS.videoHeight > 0;
@@ -153,7 +176,7 @@ export default function CompositorCanvas({
         const vAReady = isVideoReady(vAFace);
 
         const lms = faceLandmarkersRef.current;
-        if (lms && vSReady && t - lastFaceMsRef.current > 1000 / ANALYSIS.faceDetectHz) {
+        if (lms && vSReady && t - lastFaceMsRef.current > 1000 / faceHz) {
           lastFaceMsRef.current = t;
           try {
             const rS = lms.laneS.detectForVideo(vS, t);
@@ -182,9 +205,9 @@ export default function CompositorCanvas({
           timeMs: t,
         };
 
-        const ctx = canvas.getContext('2d');
+        const ctx = mainCtxRef.current;
         const fb = feedbackRef.current;
-        const fbCtx = fb?.getContext('2d');
+        const fbCtx = feedbackCtxRef.current;
         if (ctx && fb && fbCtx && fb.width === w && fb.height === h) {
           const prevFrame: CanvasImageSource = fb;
           renderMirrorFrame(ctx, w, h, f, modeCur, prevFrame, scratchRef.current);
@@ -209,7 +232,7 @@ export default function CompositorCanvas({
         }
 
         if (debugOn && canvas) {
-          const hud = canvas.getContext('2d');
+          const hud = mainCtxRef.current;
           if (hud) {
             hud.save();
             hud.fillStyle = 'rgba(0,0,0,0.45)';
@@ -239,6 +262,8 @@ export default function CompositorCanvas({
     raf = requestAnimationFrame(loop);
     return () => {
       cancelAnimationFrame(raf);
+      mainCtxRef.current = null;
+      feedbackCtxRef.current = null;
       const pair = faceLandmarkersRef.current;
       pair?.laneS.close();
       pair?.laneA.close();

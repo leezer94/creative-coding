@@ -16,6 +16,16 @@ interface ImportMetaEnv {
   readonly VITE_LIVEKIT_TOKEN_URL: string | undefined;
   /** When `true`, request microphone alongside video (Phase 3). */
   readonly VITE_STAGE_AUDIO: string | undefined;
+  /** Lower motion sample size + face detect rate for weak devices. */
+  readonly VITE_LOW_POWER_ANALYSIS: string | undefined;
+  /** Override motion grid edge length (32–256). */
+  readonly VITE_ANALYSIS_MOTION_SAMPLE_SIZE: string | undefined;
+  /** Override face landmarker approximate Hz per lane (1–30). */
+  readonly VITE_ANALYSIS_FACE_DETECT_HZ: string | undefined;
+  /** Skip MediaPipe face landmarker; motion-only compositor. */
+  readonly VITE_SKIP_FACE_LANDMARKER: string | undefined;
+  /** Guest stage: when `true`, use adaptive stream (smaller tiles); default off for reliable full-stage video. */
+  readonly VITE_LIVEKIT_GUEST_ADAPTIVE_STREAM: string | undefined;
 }
 
 interface ImportMeta {
