@@ -32,18 +32,39 @@ export function statsFromLandmarks(
   };
 }
 
+const faceLandmarkerOptions = {
+  baseOptions: { modelAssetPath: '/mediapipe/face_landmarker.task' },
+  runningMode: 'VIDEO' as const,
+  numFaces: 4,
+  outputFaceBlendshapes: false,
+};
+
 export async function createFaceLandmarker(): Promise<FaceLandmarker | null> {
   try {
     const { FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
     const wasm = await FilesetResolver.forVisionTasks('/mediapipe/wasm');
-    return await FaceLandmarker.createFromOptions(wasm, {
-      baseOptions: { modelAssetPath: '/mediapipe/face_landmarker.task' },
-      runningMode: 'VIDEO',
-      numFaces: 4,
-      outputFaceBlendshapes: false,
-    });
+    return await FaceLandmarker.createFromOptions(wasm, faceLandmarkerOptions);
   } catch (e) {
     console.warn('FaceLandmarker unavailable', e);
+    return null;
+  }
+}
+
+/** One landmarker per video: a single graph cannot mux two `HTMLVideoElement` timelines without norm_rect packet skew. */
+export async function createFaceLandmarkerPair(): Promise<{
+  laneS: FaceLandmarker;
+  laneA: FaceLandmarker;
+} | null> {
+  try {
+    const { FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
+    const wasm = await FilesetResolver.forVisionTasks('/mediapipe/wasm');
+    const [laneS, laneA] = await Promise.all([
+      FaceLandmarker.createFromOptions(wasm, faceLandmarkerOptions),
+      FaceLandmarker.createFromOptions(wasm, faceLandmarkerOptions),
+    ]);
+    return { laneS, laneA };
+  } catch (e) {
+    console.warn('FaceLandmarker pair unavailable', e);
     return null;
   }
 }
